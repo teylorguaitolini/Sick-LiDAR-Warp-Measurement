@@ -1,9 +1,11 @@
 from sick_scan_tcp import SickScan
 
 class LiDAR:
-    def __init__(self, ip:str, port:int) -> None:
+    def __init__(self, ip:str, port:int, min_angle:int, max_angle:int) -> None:
         self.__ip = ip
         self.__port = port
+        self.__min_angle = min_angle
+        self.__max_angle = max_angle
 
         self.lidar_sts = False
         self.cartesian = None
@@ -11,6 +13,8 @@ class LiDAR:
     def connect(self):
         try:
             self.sick_scan = SickScan(self.__ip, self.__port)
+            self.sick_scan.set_start_stop_angle(self.__min_angle, self.__max_angle)
+            print("LiDAR conectado")
             self.lidar_sts = True
         except Exception as e:
             print("Não foi possível conectar ao sensor LiDAR")

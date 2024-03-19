@@ -6,9 +6,11 @@ class Config:
     def __init__(self) -> None:
         self.conf_sts = False
 
-        self.scan_time = 0
         self.lidar_ip = ""
         self.lidar_port = 0
+        self.min_angle = 0
+        self.max_angle = 0
+        self.scan_time = 0
 
     def read_config_file(self):
         try:
@@ -19,7 +21,9 @@ class Config:
             
             self.lidar_ip = str(config["LiDAR"]["ip"])
             self.lidar_port = int(config["LiDAR"]["port"])
-            #self.scan_time = int(config["LiDAR"]["scan_time"])
+            self.min_angle = int(config["LiDAR"]["min_angle"])
+            self.max_angle = int(config["LiDAR"]["max_angle"])
+            self.scan_time = int(config["LiDAR"]["scan_time"])
 
             self.conf_sts = True
         except:
