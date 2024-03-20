@@ -9,13 +9,13 @@ import matplotlib.pyplot as plt
 
 class App:
     def __init__(self, conf:Config):
-        self.__conf = conf
+        self._conf = conf
 
     def start(self):
-        if not self.__conf.conf_sts:
+        if not self._conf.conf_sts:
             self.exit_program()
 
-        lidar = LiDAR(self.__conf.lidar_ip, self.__conf.lidar_port, self.__conf.min_angle, self.__conf.max_angle)
+        lidar = LiDAR(self._conf.lidar_ip, self._conf.lidar_port, self._conf.min_angle, self._conf.max_angle)
 
         while True:
             lidar.connect()
@@ -31,16 +31,16 @@ class App:
             else:
                 scan_list = []
                 start_time = datetime.now()
-                while (datetime.now() - start_time).seconds <= self.__conf.scan_time:
+                while (datetime.now() - start_time).seconds <= self._conf.scan_time:
                     lidar.get_data()
                     scan_list.append(lidar.cartesian)
                     sleep(0.1) #um atraso para diminuir a quantidade de leituras
                 self.plot_3d(scan_list)
-
         
     def exit_program(self):
         print("Exiting the program...")
-        exit(0)
+        exit(0)      
+
     
     def plot_3d(self, scan_list:list[tuple]):
         print(len(scan_list))
@@ -51,11 +51,26 @@ class App:
 
         for z, scan in enumerate(scan_list):
             # Extrair os valores de x e y da leitura atual
-            x = scan[0]
-            y = scan[1]
+            x = np.array(scan[0])
+            y = np.array(scan[1])
+
+            #aplicar um threshold
+            idxs = np.where(y > 0.5)
+            x = np.delete(x, idxs)
+            y = np.delete(y, idxs)
+
+            #aplicar threshold pela média
+            mean = y.mean()
+            idxs = np.where(y < mean)
+            x = np.delete(x, idxs)
+            y = np.delete(y, idxs)
+
+            idxs = np.where(y > mean)
+            x = np.delete(x, idxs)
+            y = np.delete(y, idxs)
             
             # Plotar os pontos 3D
-            ax.scatter(x, y, z, c="b")
+            ax.scatter(x, y, z, c="g", s=1)
         
         # Configurações adicionais do gráfico
         ax.set_xlabel('X')
@@ -64,4 +79,3 @@ class App:
 
         # Exibir o gráfico
         plt.show()
-                
