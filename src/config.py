@@ -1,30 +1,46 @@
 from os.path import join
-from os import getcwd
+from os import getcwd, path
 from configparser import ConfigParser
 
 class Config:
     def __init__(self) -> None:
-        self.conf_sts = False
-
-        self.lidar_ip = ""
-        self.lidar_port = 0
-        self.min_angle = 0
-        self.max_angle = 0
+        self._lidar_ip = ""
+        self._lidar_port = 0
+        self._min_angle = 0
+        self._max_angle = 0
         self.scan_time = 0
 
     def read_config_file(self):
         try:
-            path = join(getcwd(), "conf", "config.ini")
+            config_dir = join(getcwd(), "conf", "config.ini")
+
+            if not path.exists(config_dir):
+                raise FileNotFoundError(f"O arquivo de configuração não foi encontrado em: {config_dir}")
 
             config = ConfigParser()
-            config.read(path)
+            config.read(config_dir)
             
-            self.lidar_ip = str(config["LiDAR"]["ip"])
-            self.lidar_port = int(config["LiDAR"]["port"])
-            self.min_angle = int(config["LiDAR"]["min_angle"])
-            self.max_angle = int(config["LiDAR"]["max_angle"])
-            self.scan_time = int(config["LiDAR"]["scan_time"])
-
-            self.conf_sts = True
-        except:
-            self.conf_sts = False
+            self._lidar_ip = str(config["LiDAR"]["ip"])
+            self._lidar_port = int(config["LiDAR"]["port"])
+            self._min_angle = int(config["LiDAR"]["min_angle"])
+            self._max_angle = int(config["LiDAR"]["max_angle"])
+        except FileNotFoundError as e:
+            raise e
+        except Exception as e:
+            raise e
+    
+    @property
+    def lidar_ip(self):
+        return self._lidar_ip
+    
+    @property
+    def lidar_port(self):
+        return self._lidar_port
+    
+    @property
+    def min_angle(self):
+        return self._min_angle
+    
+    @property
+    def max_angle(self):
+        return self._max_angle
