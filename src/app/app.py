@@ -1,94 +1,55 @@
-from config.config import Config
-from lidar.lidar import LiDAR
-from sys import exit
-from time import sleep
-from datetime import datetime
+import threading
+import keyboard
+import socket
+import open3d as o3d
 import numpy as np
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+from sys import exit
+from time import sleep
+from config.config import Config
+from lidar.lidar import LiDAR
+from datetime import datetime
+from sick.LMS4000.lms4000 import LMS4000
 
 class App:
     def __init__(self, conf:Config):
+        # --- Dados do Arquivo de configuração --- #
         self._conf = conf
+        # --- Objeto que abstrai o sensor LiDAR X --- #
+        self._lidar = LMS4000(self._conf.lidar_ip, self._conf.lidar_port, self._conf.min_angle, self._conf.max_angle)
+    
+    def flag(self):
+        """
+        Método para capturar o sinal de início da medição
+        """
+        print("Aguardando sinal para iniciar a rotina...")
+        if keyboard.is_pressed('1'):
+            print("Iniciando aquisição de dados...")
+            return True
+        else:
+            return False
+    
+    def measurement_rotine(self):
+        """
+        Método principal da rotina de medição
+        """
+        scans = self._lidar.data_acquisition_routine()
 
-    def _exit_program(self):
-        print("Exiting the program...")
-        exit(0) 
-
-    def _process(self, scan_list:list[tuple], threshold:float):
-        if threshold > 0:
-            for i in range(len(scan_list)):
-                # Extrair os valores de x e y da leitura atual
-                x = np.array(scan_list[i][0])
-                y = np.array(scan_list[i][1])
-
-                # --- aplicar um threshold inicial --- #
-                idxs = np.where(y > threshold)
-                x = np.delete(x, idxs)
-                y = np.delete(y, idxs)
-                # ---
-
-                # --- aplicar threshold LSC e LIC --- #
-                mean = y.mean()
-                devi = y.std()
-                lcl = mean-2*devi
-                ucl = mean+2*devi
-
-                idxs = np.where(y < lcl)
-                x = np.delete(x, idxs)
-                y = np.delete(y, idxs)
-
-                idxs = np.where(y > ucl)
-                x = np.delete(x, idxs)
-                y = np.delete(y, idxs)
-                # ---
-
-                # substitui a tupla inicial pela reduzida no processamento
-                scan_list[i] = (x, y)
-
-        self._plot(scan_list) # plotagem para vizualizar a núvem
-
-        # scan_list é a núvem de pontos para continuar os processamentos
-         
-    def _plot(self, scan_list:list[tuple]):
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
-
-        npoints = 0
-
-        for z, scan in enumerate(scan_list):
-            x = scan[0]
-            y = scan[1]
-            # Plotar os pontos 3D
-            ax.scatter(x, y, z, c="g", s=1)
-
-            npoints += len(x)
-        
-        # Configurações adicionais do gráfico
-        ax.set_xlabel('X')
-        ax.set_ylabel('Y')
-        ax.set_zlabel('Amostras')
-
-        print(f"Leituras: {len(scan_list)}")
-        print(f"Total de Pontos: {npoints}")
-
-        # Exibir o gráfico
-        plt.show()
+        pc = o3d.geometry.PointCloud()
+        pc.points = o3d.utility.Vector3dVector(np.array(scans))
+        o3d.visualization.draw_geometries([pc])
+        print(pc)
+    
+    def end(self):
+        """
+        Rotina a ser executada sempre que o programa for encerrado
+        """
+        print("Encerrando programa...")
+        self._lidar.finish()
 
     def start(self):
-        lidar = LiDAR(self._conf.lidar_ip, self._conf.lidar_port, self._conf.min_angle, self._conf.max_angle)
-
-        sleep(1)
-
         while True:
-            if input("> ").strip() == "e":
-                self._exit_program()
-            else:
-                scan_list = []
-                start_time = datetime.now()
-                
-                while (datetime.now() - start_time).seconds <= 2:
-                    lidar.get_cartesian_data()
-                    scan_list.append(lidar.cartesian)
-                    sleep(0.1) #um atraso para diminuir a quantidade de leituras
-          
-                self._process(scan_list, threshold=0)
+            if self.flag():
+                self.measurement_rotine()
+            sleep(1)

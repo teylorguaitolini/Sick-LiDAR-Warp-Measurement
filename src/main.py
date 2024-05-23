@@ -6,4 +6,11 @@ if __name__ == "__main__":
     conf.read_config_file()
 
     app = App(conf)
-    app.start()
+    
+    try:
+        app.start()
+    except KeyboardInterrupt:
+        # Tratamento de interrupção pelo usuário (Ctrl+C)
+        print("Programa interrompido pelo usuário.")
+    finally:
+        app.end()
