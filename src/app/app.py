@@ -1,15 +1,8 @@
-import threading
 import keyboard
-import socket
 import open3d as o3d
 import numpy as np
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-from sys import exit
 from time import sleep
 from config.config import Config
-from lidar.lidar import LiDAR
-from datetime import datetime
 from sick.LMS4000.lms4000 import LMS4000
 
 class App:
