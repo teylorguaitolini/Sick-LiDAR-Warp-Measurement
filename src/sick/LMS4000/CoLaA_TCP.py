@@ -93,7 +93,8 @@ class ColaA_TCP():
     
     def extract_telegram(
             self,
-            data: str
+            data: str,
+            fixed_increment: float
         ) -> tuple[list[float], list[float], list[float]]:
         telegram = data.split()
         head = telegram[:18]
@@ -115,7 +116,7 @@ class ColaA_TCP():
         angles = [start_angle + angle_step * n for n in range(value_count)]
 
         x, y = self.to_cartesian(distances, angles)
-        z = [float(encoder[1])] * len(x)
+        z = [float(encoder[1])] * len(x) if fixed_increment == 0 else [fixed_increment] * len(x)
         return x, y, z
 
     """
@@ -275,14 +276,14 @@ class ColaA_TCP():
         """
         pass
     
-    def poll_one_telegram(self):
+    def poll_one_telegram(self, fixed_increment:float):
         data = self.send_socket(
             message = 'sRN LMDscandata',
             buffer = 10240
         )
         # transforma do formato ([x1, x2, x3, ...], [y1, y2, y3, ...], [z1, z2, z3, ...])
         # para o formato ([x1, y1, z1], [x2, y2, z2], [x3, y3, z3], ...)
-        points = list(zip(*self.extract_telegram(data)))
+        points = list(zip(*self.extract_telegram(data, fixed_increment)))
         return points
 
 
