@@ -6,8 +6,9 @@ class Config:
     def __init__(self) -> None:
         self._lidar_ip = ""
         self._lidar_port = 0
-        self._min_angle = 0
-        self._max_angle = 0
+        self._start_angle = 0
+        self._stop_angle = 0
+        self._distance = 0
 
     def read_config_file(self):
         try:
@@ -21,8 +22,9 @@ class Config:
             
             self._lidar_ip = str(config["LiDAR"]["ip"])
             self._lidar_port = int(config["LiDAR"]["port"])
-            self._min_angle = int(config["LiDAR"]["min_angle"])
-            self._max_angle = int(config["LiDAR"]["max_angle"])
+            self._start_angle = int(config["LiDAR"]["start_angle"])
+            self._stop_angle = int(config["LiDAR"]["stop_angle"])
+            self._distance = int(config["LiDAR"]["distance"])
         except FileNotFoundError as e:
             raise e
         except Exception as e:
@@ -37,9 +39,14 @@ class Config:
         return self._lidar_port
     
     @property
-    def min_angle(self):
-        return self._min_angle
+    def start_angle(self):
+        return self._start_angle
     
     @property
-    def max_angle(self):
-        return self._max_angle
+    def stop_angle(self):
+        return self._stop_angle
+    
+    @property
+    def distance(self):
+        return self._distance
+    

@@ -1,5 +1,5 @@
-from config.config import Config
-from app.app import App
+from config import Config
+from app import App
 
 if __name__ == "__main__":
     conf = Config()

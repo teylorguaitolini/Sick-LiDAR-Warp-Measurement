@@ -28,6 +28,7 @@ class ColaA_TCP():
                 break
             except Exception as e:
                 print(f"Erro ao tentar criar a conexão socket: {e}")
+                time.sleep(1)
 
     def release(self) -> None:
         """

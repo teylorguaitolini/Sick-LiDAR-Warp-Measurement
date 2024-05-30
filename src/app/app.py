@@ -1,16 +1,17 @@
 import keyboard
-import open3d as o3d
-import numpy as np
 from time import sleep
-from config.config import Config
-from sick.LMS4000.lms4000 import LMS4000
+from config import Config
+from sick.LMS4000 import LMS4000
+from app import PointCloudManager
 
 class App:
     def __init__(self, conf:Config):
         # --- Dados do Arquivo de configuração --- #
         self._conf = conf
         # --- Objeto que abstrai o sensor LiDAR X --- #
-        self._lidar = LMS4000(self._conf.lidar_ip, self._conf.lidar_port, self._conf.min_angle, self._conf.max_angle)
+        self._lidar = LMS4000(self._conf.lidar_ip, self._conf.lidar_port, self._conf.start_angle, self._conf.stop_angle)
+        # --- Objeto PointCloudManager --- #
+        self._pcm = PointCloudManager()
     
     def flag(self):
         """
@@ -28,11 +29,12 @@ class App:
         Método principal da rotina de medição
         """
         scans = self._lidar.data_acquisition_routine()
-
-        pc = o3d.geometry.PointCloud()
-        pc.points = o3d.utility.Vector3dVector(np.array(scans))
-        o3d.visualization.draw_geometries([pc])
-        print(pc)
+        # plota a nuvem de pontos
+        self._pcm.load_from_list(scans)
+        self._pcm.filter_by_distance(self._conf.distance)
+        self._pcm.filter_statistical_outliers()
+        self._pcm.compute_warping()
+        self._pcm.visualize()
     
     def end(self):
         """

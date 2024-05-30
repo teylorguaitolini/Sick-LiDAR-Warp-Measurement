@@ -1,11 +1,11 @@
 # Sick-LiDAR-Warp-Measurement
-Measuring steel slab warping using Sick LiDAR LMS4000 and LMS5xx sensors.
+Measuring steel slab warping using the Sick LiDAR sensors from the LMS4000 and LMS5xx families.
 
 ## Sensors
 - [LMS4124R-13000S01](https://www.sick.com/us/en/catalog/products/lidar-and-radar-sensors/lidar-sensors/lms4000/lms4124r-13000s01/p/p665943).
 - [LMS511-22100 Heavy Duty](https://www.sick.com/us/en/catalog/products/lidar-and-radar-sensors/lidar-sensors/lms5xx/lms511-22100-heavy-duty/p/p465947).
 
-## Documentation of the Sick protocol CoLA TCP
+## Documentation of the Sick protocol CoLa A TCP
 - LiDAR-LMS511-Warp-Measurement/documents/technical_information_telegram_listing_ranging_sensors - latest.pdf
 
 ## Useful reference repositories
