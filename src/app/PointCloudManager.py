@@ -10,9 +10,9 @@ class PointCloudManager:
             self.point_cloud.clear()
         print("Point cloud cleared.")
 
-    def load_from_list(self, scans:list):
+    def load_from_list(self, pcd:list):
         self._clear()
-        self.point_cloud.points = o3d.utility.Vector3dVector(np.array(scans))
+        self.point_cloud.points = o3d.utility.Vector3dVector(np.array(pcd))
         print("Point cloud loaded from list")
 
     def load_from_file(self, filename):
@@ -20,18 +20,15 @@ class PointCloudManager:
         self.point_cloud = o3d.io.read_point_cloud(filename)
         print(f"Point cloud loaded from {filename}")
     
-    def save_to_file(self, filename, format='pcd'):
-        if format == 'pcd':
-            o3d.io.write_point_cloud(filename, self.point_cloud)
-        elif format == 'ply':
-            o3d.io.write_point_cloud(filename, self.point_cloud)
+    def save_to_file(self, filename:str, format='pcd'):
+        if format == 'pcd' or format == 'ply':
+            o3d.io.write_point_cloud(filename+"."+format, self.point_cloud)
         else:
             raise ValueError("Unsupported file format. Use 'pcd' or 'ply'.")
         print(f"Point cloud saved to {filename}")
     
     def visualize(self):
         o3d.visualization.draw_geometries([self.point_cloud])
-        print(self.point_cloud)
         print("Point cloud visualized.")
     
     def filter_by_distance(self, distance):
@@ -72,14 +69,18 @@ class PointCloudManager:
                                                               ransac_n=3,
                                                               num_iterations=1000)
         [a, b, c, d] = plane_model
-        print(f"Plane equation: {a}x + {b}y + {c}z + {d} = 0")
+        plane_equation = f"Plane equation: {a}x + {b}y + {c}z + {d} = 0"
 
         # Calculate the distance of each point to the plane
         points = np.asarray(self.point_cloud.points)
         distances = np.abs(a * points[:, 0] + b * points[:, 1] + c * points[:, 2] + d) / np.sqrt(a**2 + b**2 + c**2)
 
         # Compute warping as the max distance from the plane
-        warping_value = np.max(distances)
+        warping_value = float(np.max(distances))
+
+        # prints
+        print(self.point_cloud)
+        print(plane_equation)
         print(f"Maximum warping distance: {warping_value}")
 
-        return warping_value
+        return warping_value, plane_equation

@@ -34,3 +34,6 @@ requirements.txt
 
 # Ignore arquivos de configuração local
 *.cfg
+
+# Ignore files from the Measurements folder
+Measurements/

@@ -40,11 +40,13 @@ class LMS4000():
         z = 0
 
         # mensagem de start captura de dados
-        while not keyboard.is_pressed('0'):
+        #while not keyboard.is_pressed('3'):
+        while True:
             scans.extend(self._com.poll_one_telegram(z))
-            print("adicionando leitura")
-            z += 0.01
-            sleep(1)
-            #break
+            scans.extend(self._com.poll_one_telegram(z))
+            #print("adicionando leituraaa")
+            if z >= 12:
+                break
+            z += 0.1
         # mensagem de stop da captura de dados
         return scans
