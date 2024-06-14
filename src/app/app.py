@@ -53,10 +53,15 @@ class App:
                     format="pcd"
                     )
             
-            # Aplica filtros na nuvem e computa empenamento
+            # Aplica filtros na nuvem
             self._pcm.filter_by_distance(self._conf.distance)
             self._pcm.filter_statistical_outliers()
-            warping, plane_equation = self._pcm.compute_warping()
+
+            # computa empenamento
+            warping_list = []
+            # warping_list.append(self._pcm.compute_warping())
+            # warping_list.append(self._pcm.compute_warping2())
+            warping_list.append(self._pcm.compute_warping3())
 
             # caso seja para salvar, salva a nuvem final e escreve resultado da mediçao
             if self._conf.save:
@@ -64,22 +69,24 @@ class App:
                     filename=join(file_dir, "final"),
                     format="pcd"
                     )
-                self.write_measurement_result(join(file_dir, "Measurement.txt"), str(warping), plane_equation)
+                self.write_measurement_result(join(file_dir, "Measurement.txt"), warping_list)
         else:
             # solicita a abertura de um arquivo pcd e já carrega no pcm
             self.load_file()
             # computa empenamento
-            warping, plane_equation = self._pcm.compute_warping()
+            # self._pcm.compute_warping()
+            # self._pcm.compute_warping2()
+            self._pcm.compute_warping3()
             
         # Abre visualização da nuvem final
         self._pcm.visualize()
     
-    def write_measurement_result(self, filename:str, warping:str, plane_equation:str):
+    def write_measurement_result(self, filename:str, warping_list:list[float]):
         try:
             with open(filename, 'a') as file:
                 file.write("# --- MEASUREMENT RESULT --- #\n")
-                file.write(f"{plane_equation}\n")
-                file.write(f"Measured Warping: {warping} m\n")
+                for i, warping in enumerate(warping_list):
+                    file.write(f"Measured Warping by Method {i+1}: {(warping*100):.2f} cm\n")
                 file.write("# ---")
                 print(f"Mensagem gravada com sucesso em {filename}")
         except Exception as e:
