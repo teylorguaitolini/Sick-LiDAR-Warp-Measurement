@@ -1,8 +1,6 @@
-import keyboard
-from time import sleep
-from sick.LMS4000 import ColaA_TCP
+from sick.LMS5xx import ColaA_TCP
 
-class LMS4000():
+class LMS5xx():
     """
     Classe que abstrai o sensor LiDAR
     """
@@ -27,7 +25,7 @@ class LMS4000():
         """
         self._com.login()
         self._com.read_freq_and_angular_resol()
-        self._com.config_scandata_content()
+        self._com.config_scandata_content(data_channel=False, further_data_channel=0, encoder=True)
         self._com.config_scandata_measurement_output(self._start_angle, self._stop_angle)
         #self._com.set_encoder_settings()
         self._com.logout()
@@ -39,15 +37,14 @@ class LMS4000():
         scans = []
         z = 0
 
-        # to ensure that encoder will start at 0 mm
-        self._com.reset_encoder_values()
-
+        # mensagem de start captura de dados
+        #while not keyboard.is_pressed('3'):
         while True:
-            scan = self._com.poll_one_telegram(z)
-            z = scan[2]
-            scans.extend(scan)
+            scans.extend(self._com.poll_one_telegram(z))
+            scans.extend(self._com.poll_one_telegram(z))
             #print("adicionando leituraaa")
             if z >= 12:
                 break
             z += 0.1
+        # mensagem de stop da captura de dados
         return scans
