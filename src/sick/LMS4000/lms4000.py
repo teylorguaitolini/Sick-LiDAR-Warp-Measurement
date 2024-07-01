@@ -1,10 +1,10 @@
-import keyboard
 from time import sleep
+from datetime import datetime
 from sick.LMS4000 import ColaA_TCP
 
 class LMS4000():
     """
-    Classe que abstrai o sensor LiDAR
+    Class that abstracts the LMS4000 LiDAR sensor.
     """
     def __init__(self, ip:str, port:int, start_angle:int, stop_angle:int) -> None:
         # --- Dados provenientes no arquivo config.ini --- #
@@ -15,10 +15,9 @@ class LMS4000():
         # --- Objeto de Comunicação com o LiDAR (Protocolo CoLa A via TCP) --- #
         self._com = ColaA_TCP(self._ip, self._port)
 
-        self.parameterize()
-    
+        self._parameterize()
 
-    def parameterize(self):
+    def _parameterize(self):
         """
         Configuração geral do LiDAR
             - Get frequency and resolution
@@ -27,26 +26,25 @@ class LMS4000():
         """
         self._com.login()
         self._com.read_freq_and_angular_resol()
-        self._com.config_scandata_content(data_channel=False, further_data_channel=0, encoder=True)
-        self._com.config_scandata_measurement_output(self._start_angle, self._stop_angle)
+        self._com.config_scandata_content()
+        #self._com.config_scandata_measurement_output(self._start_angle, self._stop_angle)
         #self._com.set_encoder_settings()
+        # to ensure that the encoder will start at 0 mm
+        self._com.reset_encoder_values()
         self._com.logout()
     
     def finish(self):
         self._com.release()
     
     def data_acquisition_routine(self):
-        scans = []
-        z = 0
-
-        # mensagem de start captura de dados
-        #while not keyboard.is_pressed('3'):
-        while True:
-            scans.extend(self._com.poll_one_telegram(z))
-            scans.extend(self._com.poll_one_telegram(z))
-            #print("adicionando leituraaa")
-            if z >= 12:
-                break
-            z += 0.1
-        # mensagem de stop da captura de dados
-        return scans
+        """
+        Method that creates the pcd list by capturing each scan requested to the sensor.
+        """
+        pcd = []
+        start_time = datetime.now()
+        while (datetime.now() - start_time).seconds <= 10:
+            points = self._com.poll_one_telegram()
+            pcd.extend(points)
+            print(points[0][2]) # printing the z axis to debug
+            sleep(0.25)
+        return pcd

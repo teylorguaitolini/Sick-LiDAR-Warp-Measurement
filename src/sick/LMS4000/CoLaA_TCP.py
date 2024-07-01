@@ -5,7 +5,7 @@ import time
 
 class ColaA_TCP():
     """
-    Classe que implementa a comunicação protocolo CoLa A da Sick via TCP com o sensor LMS4000
+    Class that implements the comunication by Sick CoLa A protocol via TCP with the LMS4000 sensor.
     """
     def __init__(self, ip:str, port:int) -> None:
         # --- Dados do arquivo de configuração --- #
@@ -40,15 +40,6 @@ class ColaA_TCP():
     @staticmethod
     def int_2hex(decimal_number, factor) -> str:
         return hex(int(decimal_number * factor))[2:].upper()
-    
-    @staticmethod
-    def int_2hexstring(decimal_number) -> str:
-        return hex(decimal_number)[2:].upper()
-    
-    @staticmethod
-    def hex_to_meters(i) -> list[float]:
-        i = [int(x,16)/1000 for x in i ]
-        return i
     
     @staticmethod
     def uint32(i):
@@ -94,8 +85,7 @@ class ColaA_TCP():
     
     def extract_telegram(
             self,
-            data: str,
-            fixed_increment: float
+            data: str
         ) -> tuple[list[float], list[float], list[float]]:
         telegram = data.split()
         head = telegram[:18]
@@ -106,7 +96,7 @@ class ColaA_TCP():
         #print("Encoder: " + str(encoder))
         #print("Body:" + str(body))
 
-        scale_factor = 1 if body[2] == '3F800000' else 2
+        scale_factor = 0.1 # for LMS4000: Factor x 0.1: 3DCCCCCDh (DIST1)
         try:
             start_angle = self.uint32(body[4])/10000.0
         except ValueError:
@@ -117,7 +107,12 @@ class ColaA_TCP():
         angles = [start_angle + angle_step * n for n in range(value_count)]
 
         x, y = self.to_cartesian(distances, angles)
-        z = [float(encoder[1])] * len(x) if fixed_increment == 0 else [fixed_increment] * len(x)
+
+        encoder_resolution = 0.2 # 0.2 mm per tick
+        encoder_current_num_of_ticks = int(encoder[1], 16)
+        current_position = (encoder_current_num_of_ticks * encoder_resolution / 1000) # in meters
+
+        z = [current_position] * len(x)
         return x, y, z
 
     """
@@ -176,7 +171,7 @@ class ColaA_TCP():
             scan_freq = int(telegram[2], 16)/100            
             num_of_sectors = int(telegram[3])                  
             angular_resolution = int(telegram[4], 16)/10000     
-            start_angle = self.uint32(telegram[5])/10000        
+            start_angle = int(telegram[5], 16)/10000        
             stop_angle = int(telegram[6], 16)/10000             
             print(scan_freq)
             print(num_of_sectors)
@@ -195,13 +190,15 @@ class ColaA_TCP():
         Configura o conteúdo dos dados de varredura (scan) para o sensor LMS4000 utilizando o formato de telegrama CoLa A (ASCII).
 
         Data Channel:
-        - Descrição: Define se os valores de distância devem ser incluídos no telegrama de saída.
+        - Descrição: 
+            - data_channel: Define se os valores de distância devem ser incluídos no telegrama de saída.
         - Valores:
-            - `True`: "01" - No distance values (sem valores de distância)
-            - `False`: "00" - Distance values (com valores de distância)
+            - `True`: "01" - Distance values (com valores de distância)
+            - `False`: "00" - No distance values (sem valores de distância)
         
         Further Data Channel:
-        - Descrição: Configura dados adicionais transmitidos além dos valores de distância.
+        - Descrição: 
+            - further_data_channel: Configura dados adicionais transmitidos além dos valores de distância.
         - Valores:
             - `0` - No values (sem valores)
             - `1` - Remission only (apenas remissão)
@@ -213,10 +210,11 @@ class ColaA_TCP():
             - `7` - Remission, Angle & Quality (remissão, ângulo e qualidade)
         
         Encoder:
-        - Descrição: Configura se serão transmitidos dados de encoder.
+        - Descrição:
+            - encoder: Configura se serão transmitidos dados de encoder.
         - Valores:
-            - `True`: "01" - No distance values (sem valores de distância)
-            - `False`: "00" - Distance values (com valores de distância)
+            - `True`: "01" - Channel 1 (com dados de encoder)
+            - `False`: "00" - No encoder (sem dados de encoder)
         
         Exemplos:
             - Chamada: config_scandata_content(data_channel=False, further_data_channel=0, encoder=False)
@@ -232,8 +230,7 @@ class ColaA_TCP():
             p_encoder = "01" if encoder else "00"
             
             data = self.send_socket(
-                #message = f"sWN LMDscandatacfg {p_data_channel} 00 {p_further_data_channel} 1 0 {p_encoder} 00 0 0 0 0 +1",
-                message = f"sWN LMDscandatacfg {p_data_channel} 00 {p_further_data_channel} 0 0 {p_encoder} 00 0 0 0 0 +1",
+                message = f"sWN LMDscandatacfg {p_data_channel} 00 {p_further_data_channel} 1 0 {p_encoder} 00 0 0 0 0 +1",
                 buffer = 128
             )
             telegram = data.split()
@@ -256,8 +253,7 @@ class ColaA_TCP():
             hex_start_angle = self.int_2hex(start_angle, 10000)
             hex_stop_angle = self.int_2hex(stop_angle, 10000)
             data = self.send_socket(
-                #message = f"sWN LMPoutputRange 1 341h {hex_start_angle} {hex_stop_angle}",
-                message = f"sWN LMPoutputRange 1 1388 {hex_start_angle} {hex_stop_angle}",
+                message = f"sWN LMPoutputRange 1 341 {hex_start_angle} {hex_stop_angle}",
                 buffer = 128
             )
             telegram = data.split()
@@ -276,23 +272,26 @@ class ColaA_TCP():
         Sessão "4.6.2 Set encoder settings" do manual do Protocolo CoLa A
         """
         pass
+
+    def reset_encoder_values(self):
+        """
+        Section "4.6.7 Reset encoder values" from the Sick Telegram Listing
+        """
+        data = self.send_socket(
+            message = "sMN LIDrstencoderinc",
+            buffer = 128
+        )
+        if data[2] == "0":
+            return True
+        else:
+            return False
     
-    def poll_one_telegram(self, fixed_increment:float):
+    def poll_one_telegram(self):
         data = self.send_socket(
             message = 'sRN LMDscandata',
             buffer = 10240
         )
         # transforma do formato ([x1, x2, x3, ...], [y1, y2, y3, ...], [z1, z2, z3, ...])
         # para o formato ([x1, y1, z1], [x2, y2, z2], [x3, y3, z3], ...)
-        points = list(zip(*self.extract_telegram(data, fixed_increment)))
+        points = list(zip(*self.extract_telegram(data)))
         return points
-
-
-    def start_scan(self):
-        pass
-
-    def stop_scan(self):
-        pass
-
-    def standby_scan(self):
-        pass
