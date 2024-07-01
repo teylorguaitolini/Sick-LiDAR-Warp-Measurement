@@ -4,6 +4,11 @@ from configparser import ConfigParser
 
 class Config:
     def __init__(self) -> None:
+        # App
+        self._app_save = False
+        # Api
+        self._api_save = False
+        self._distance = 0
         # LMS4000
         self._LMS4000_lidar_ip = ""
         self._LMS4000_lidar_port = 0
@@ -14,10 +19,6 @@ class Config:
         self._LMS5xx_lidar_port = 0
         self._LMS5xx_start_angle = 0
         self._LMS5xx_stop_angle = 0
-        # App
-        self._distance = 0
-        self._scan = False
-        self._save = False
 
         # Read the config file
         self._read_config_file()
@@ -32,6 +33,13 @@ class Config:
             config = ConfigParser()
             config.read(config_dir)
 
+            # App
+            self._app_save = True if str(config["App"]["save"]).upper() == "TRUE" else False
+
+            # Api
+            self._api_save = True if str(config["Api"]["save"]).upper() == "TRUE" else False
+            self._distance = int(config["Api"]["distance"])
+
             # LMS4000
             self._LMS4000_lidar_ip = str(config["LMS4000"]["ip"])
             self._LMS4000_lidar_port = int(config["LMS4000"]["port"])
@@ -43,15 +51,24 @@ class Config:
             self._LMS5xx_lidar_port = int(config["LMS5xx"]["port"])
             self._LMS5xx_start_angle = int(config["LMS5xx"]["start_angle"])
             self._LMS5xx_stop_angle = int(config["LMS5xx"]["stop_angle"])
-            
-            # App
-            self._distance = int(config["App"]["distance"])
-            self._save = True if str(config["App"]["save"]).upper() == "TRUE" else False
-            self._scan = True if str(config["App"]["scan"]).upper() == "TRUE" else False
         except FileNotFoundError as e:
             raise e
         except Exception as e:
             raise e
+        
+    # --- App --- #    
+    @property
+    def app_save(self):
+        return self._app_save
+    
+    # --- Api --- #
+    @property
+    def api_save(self):
+        return self._api_save
+    
+    @property
+    def distance(self):
+        return self._distance
     
     # --- LMS4000 --- #
     @property
@@ -86,17 +103,4 @@ class Config:
     @property
     def LMS5xx_stop_angle(self):
         return self._LMS5xx_stop_angle
-
-    # --- App --- #
-    @property
-    def distance(self):
-        return self._distance
-    
-    @property
-    def scan(self):
-        return self._scan
-    
-    @property
-    def save(self):
-        return self._save
     

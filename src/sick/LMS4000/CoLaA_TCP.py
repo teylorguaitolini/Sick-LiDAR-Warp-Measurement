@@ -5,7 +5,7 @@ import time
 
 class ColaA_TCP():
     """
-    Classe que implementa a comunicação protocolo CoLa A da Sick via TCP com o sensor LMS4000
+    Class that implements the comunication by Sick CoLa A protocol via TCP with the LMS4000 sensor.
     """
     def __init__(self, ip:str, port:int) -> None:
         # --- Dados do arquivo de configuração --- #
@@ -85,8 +85,7 @@ class ColaA_TCP():
     
     def extract_telegram(
             self,
-            data: str,
-            fixed_increment: float
+            data: str
         ) -> tuple[list[float], list[float], list[float]]:
         telegram = data.split()
         head = telegram[:18]
@@ -113,7 +112,7 @@ class ColaA_TCP():
         encoder_current_num_of_ticks = int(encoder[1], 16)
         current_position = (encoder_current_num_of_ticks * encoder_resolution / 1000) # in meters
 
-        z = [current_position] * len(x) if fixed_increment == 0 else [fixed_increment] * len(x)
+        z = [current_position] * len(x)
         return x, y, z
 
     """
@@ -278,23 +277,21 @@ class ColaA_TCP():
         """
         Section "4.6.7 Reset encoder values" from the Sick Telegram Listing
         """
-        self.login()
         data = self.send_socket(
             message = "sMN LIDrstencoderinc",
             buffer = 128
         )
-        self.logout()
         if data[2] == "0":
             return True
         else:
             return False
     
-    def poll_one_telegram(self, fixed_increment:float):
+    def poll_one_telegram(self):
         data = self.send_socket(
             message = 'sRN LMDscandata',
             buffer = 10240
         )
         # transforma do formato ([x1, x2, x3, ...], [y1, y2, y3, ...], [z1, z2, z3, ...])
         # para o formato ([x1, y1, z1], [x2, y2, z2], [x3, y3, z3], ...)
-        points = list(zip(*self.extract_telegram(data, fixed_increment)))
+        points = list(zip(*self.extract_telegram(data)))
         return points

@@ -1,6 +1,7 @@
 import open3d as o3d
 import numpy as np
 import pyvista as pv
+import plotly.graph_objs as go
 
 class PointCloudManager:
     def __init__(self):
@@ -76,7 +77,6 @@ class PointCloudManager:
 
         # prints
         print(plane_equation)
-        print(f"Warping Method 1: {(warping_value*100):.2f} cm")
 
         return warping_value
     
@@ -117,20 +117,10 @@ class PointCloudManager:
 
         # empeno
         warping = np.abs(h - mean_y)
-        print(f"Warping Method 2: {(warping*100):.2f} cm")
 
         return warping
-    
-    def compute_warping3(self):
-        """
-        """
-        warping1 = self.compute_warping()
-        warping2 = self.compute_warping2()
-        warping3 = (warping1 + warping2)/2
-        print(f"Warping Method 3: {(warping3*100):.2f} cm")
-        return warping1, warping2, warping3
 
-    def visualize(self, visualize_plane=True):
+    def visualize(self, visualize_plane: bool, warping_list: list):
         """
         Visualizes the point cloud.
         
@@ -141,7 +131,7 @@ class PointCloudManager:
             self.point_cloud.paint_uniform_color([0, 0.5, 1]) # blue
             o3d.visualization.draw_geometries([self.point_cloud])
         else:
-            # vetor de tuplas [x,y,z]
+            # vetor de tuplas [x, y, z]
             point_cloud = np.asarray(self.point_cloud.points)
 
             # [a, b, c, d] os coeficientes da equação do plano
@@ -150,12 +140,16 @@ class PointCloudManager:
             # Calculando os limites da nuvem de pontos
             x_min, x_max = np.min(point_cloud[:, 0]), np.max(point_cloud[:, 0])
             y_min, y_max = np.min(point_cloud[:, 1]), np.max(point_cloud[:, 1])
+            z_min, z_max = np.min(point_cloud[:, 2]), np.max(point_cloud[:, 2])
 
             # Definindo a grade para o plano com base nos limites da nuvem de pontos
             x = np.linspace(x_min, x_max, 10)
             y = np.linspace(y_min, y_max, 10)
             x, y = np.meshgrid(x, y)
             z = (-a * x - b * y - d) / c
+
+            # Limitando os valores de z para estarem dentro do intervalo [z_min, z_max]
+            z = np.clip(z, z_min, z_max)
 
             # Criando uma nuvem de pontos no PyVista
             point_cloud_pv = pv.PolyData(point_cloud)
@@ -164,9 +158,16 @@ class PointCloudManager:
             plane = pv.StructuredGrid(x, y, z)
 
             # Criando a plotagem
-            plotter = pv.Plotter()
+            plotter = pv.Plotter()  # Assegure-se de criar um novo plotter
             plotter.add_mesh(point_cloud_pv, color='blue', point_size=5, render_points_as_spheres=True)
             plotter.add_mesh(plane, color='yellow', opacity=0.5)
+
+            # adding a text with the measurement results
+            text = ""
+            for i, warping in enumerate(warping_list):
+                text += f"Measured Warping by Method {i+1}: {(warping*100):.2f} cm\n"
+            plotter.add_text(text, position='upper_left', font_size=12, color='red')
+
             plotter.show()
 
         print("Point cloud visualized.")
