@@ -29,9 +29,6 @@ build/
 /.venv/
 pip-wheel-metadata/
 
-# Ignore o arquivo de dependências gerado pelo pip
-requirements.txt
-
 # Ignore arquivos de configuração local
 *.cfg
 
