@@ -2,8 +2,8 @@ from config.config import Config
 from datetime import datetime
 from os.path import join, exists
 from os import getcwd, makedirs
-from sick.LMS4000 import LMS4000
-#from sick.LMS5xx import LMS5xx
+from sick.LMS4000.lms4000 import LMS4000
+# from sick.LMS5xx.lms5xx import LMS5xx
 from utils.PointCloudManager import PointCloudManager
 from fastapi import FastAPI, HTTPException
 
