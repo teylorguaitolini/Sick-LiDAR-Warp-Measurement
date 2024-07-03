@@ -3,8 +3,6 @@ from os.path import join, exists
 from os import getcwd, makedirs
 from tkinter import Tk, filedialog, messagebox
 from config.config import Config
-from sick.LMS4000 import LMS4000
-#from sick.LMS5xx import LMS5xx
 from utils.PointCloudManager import PointCloudManager
 
 class App:

@@ -1,6 +1,6 @@
 from time import sleep
 from datetime import datetime
-from sick.LMS4000 import ColaA_TCP
+from sick.LMS4000.CoLaA_TCP import ColaA_TCP
 
 class LMS4000():
     """
