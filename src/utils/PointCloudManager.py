@@ -1,7 +1,6 @@
 import open3d as o3d
 import numpy as np
 import pyvista as pv
-import plotly.graph_objs as go
 
 class PointCloudManager:
     def __init__(self):

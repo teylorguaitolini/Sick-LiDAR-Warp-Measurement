@@ -1,6 +1,6 @@
-from os.path import join
-from os import getcwd, path
+from os.path import join, exists
 from configparser import ConfigParser
+from config.logger_config import logger  # Import the logger
 
 class Config:
     def __init__(self) -> None:
@@ -20,42 +20,6 @@ class Config:
         self._LMS5xx_start_angle = 0
         self._LMS5xx_stop_angle = 0
 
-        # Read the config file
-        self._read_config_file()
-
-    def _read_config_file(self):
-        try:
-            config_dir = join(getcwd(), "conf", "config.ini")
-
-            if not path.exists(config_dir):
-                raise FileNotFoundError(f"O arquivo de configuração não foi encontrado em: {config_dir}")
-
-            config = ConfigParser()
-            config.read(config_dir)
-
-            # App
-            self._app_save = True if str(config["App"]["save"]).upper() == "TRUE" else False
-
-            # Api
-            self._api_save = True if str(config["Api"]["save"]).upper() == "TRUE" else False
-            self._distance = int(config["Api"]["distance"])
-
-            # LMS4000
-            self._LMS4000_lidar_ip = str(config["LMS4000"]["ip"])
-            self._LMS4000_lidar_port = int(config["LMS4000"]["port"])
-            self._LMS4000_start_angle = int(config["LMS4000"]["start_angle"])
-            self._LMS4000_stop_angle = int(config["LMS4000"]["stop_angle"])
-
-            # LMS5xx
-            self._LMS5xx_lidar_ip = str(config["LMS5xx"]["ip"])
-            self._LMS5xx_lidar_port = int(config["LMS5xx"]["port"])
-            self._LMS5xx_start_angle = int(config["LMS5xx"]["start_angle"])
-            self._LMS5xx_stop_angle = int(config["LMS5xx"]["stop_angle"])
-        except FileNotFoundError as e:
-            raise e
-        except Exception as e:
-            raise e
-        
     # --- App --- #    
     @property
     def app_save(self):
@@ -102,5 +66,47 @@ class Config:
     
     @property
     def LMS5xx_stop_angle(self):
-        return self._LMS5xx_stop_angle
+        return self._LMS5xx_stop_angles
+
+    def read_config_file(self, DIR:str):
+        """
+        Read the config.ini file.
+        """
+        try:
+            config_dir = join(DIR, "conf", "config.ini")
+            if not exists(config_dir):
+                raise FileNotFoundError(f"The configuration file was not find in: {config_dir}")
+
+            config = ConfigParser()
+            config.read(config_dir)
+
+            # App
+            self._app_save = True if str(config["App"]["save"]).upper() == "TRUE" else False
+
+            # Api
+            self._api_save = True if str(config["Api"]["save"]).upper() == "TRUE" else False
+            self._distance = int(config["Api"]["distance"])
+
+            # LMS4000
+            self._LMS4000_lidar_ip = str(config["LMS4000"]["ip"])
+            self._LMS4000_lidar_port = int(config["LMS4000"]["port"])
+            self._LMS4000_start_angle = int(config["LMS4000"]["start_angle"])
+            self._LMS4000_stop_angle = int(config["LMS4000"]["stop_angle"])
+
+            # LMS5xx
+            self._LMS5xx_lidar_ip = str(config["LMS5xx"]["ip"])
+            self._LMS5xx_lidar_port = int(config["LMS5xx"]["port"])
+            self._LMS5xx_start_angle = int(config["LMS5xx"]["start_angle"])
+            self._LMS5xx_stop_angle = int(config["LMS5xx"]["stop_angle"])
+
+            logger.info("config.ini file was read successfuly.")
+
+            return True
+        except FileNotFoundError as e:
+            logger.error(e)
+            return False
+        except Exception as e:
+            logger.error(e)
+            return False
+        
     

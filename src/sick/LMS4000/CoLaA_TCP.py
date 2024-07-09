@@ -2,6 +2,8 @@ import socket
 import math
 import struct
 import time
+from datetime import datetime
+from config.logger_config import logger
 
 class ColaA_TCP():
     """
@@ -13,29 +15,6 @@ class ColaA_TCP():
         self._port = port
         # --- Objeto comunicação Socket --- #
         self.socket_sick = None
-        
-        self.connect()
-    
-    def connect(self) -> None:
-        """
-        Cria a conexão Socket com o LiDAR
-        """
-        while True:
-            try:
-                self.socket_sick = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                self.socket_sick.connect((self._ip, self._port))
-                print("Conexão socket criada")
-                break
-            except Exception as e:
-                print(f"Erro ao tentar criar a conexão socket: {e}")
-                time.sleep(1)
-
-    def release(self) -> None:
-        """
-        Termina a Conexão Socket com o LiDAR
-        """
-        self.socket_sick.close()
-        print("Conexão socket encerrada")
     
     @staticmethod
     def int_2hex(decimal_number, factor) -> str:
@@ -83,37 +62,65 @@ class ColaA_TCP():
         #print("received message: "+ data)
         return data
     
-    def extract_telegram(
-            self,
-            data: str
-        ) -> tuple[list[float], list[float], list[float]]:
-        telegram = data.split()
-        head = telegram[:18]
-        encoder = telegram[18:21]
-        body = telegram[21:]
-        #print(len(telegram))
-        #print("Head: " + str(head))
-        #print("Encoder: " + str(encoder))
-        #print("Body:" + str(body))
-
-        scale_factor = 0.1 # for LMS4000: Factor x 0.1: 3DCCCCCDh (DIST1)
+    def extract_telegram(self, data: str):
         try:
-            start_angle = self.uint32(body[4])/10000.0
-        except ValueError:
-            start_angle = int(body[4], 16)/10000.0
-        angle_step = int(body[5], 16) / 10000.0
-        value_count = int(body[6], 16)   
-        distances = list(map(lambda x: (int(x, 16) * scale_factor)/1000.0, body[7:7+value_count]))
-        angles = [start_angle + angle_step * n for n in range(value_count)]
+            telegram = data.split()
+            head = telegram[:18]
+            encoder = telegram[18:21]
+            body = telegram[21:]
+            #print(len(telegram))
+            #print("Head: " + str(head))
+            #print("Encoder: " + str(encoder))
+            #print("Body:" + str(body))
 
-        x, y = self.to_cartesian(distances, angles)
+            scale_factor = 0.1 # for LMS4000: Factor x 0.1: 3DCCCCCDh (DIST1)
+            try:
+                start_angle = self.uint32(body[4])/10000.0
+            except ValueError:
+                start_angle = int(body[4], 16)/10000.0
+            angle_step = int(body[5], 16) / 10000.0
+            value_count = int(body[6], 16)   
+            distances = list(map(lambda x: (int(x, 16) * scale_factor)/1000.0, body[7:7+value_count]))
+            angles = [start_angle + angle_step * n for n in range(value_count)]
 
-        encoder_resolution = 0.2 # 0.2 mm per tick
-        encoder_current_num_of_ticks = int(encoder[1], 16)
-        current_position = (encoder_current_num_of_ticks * encoder_resolution / 1000) # in meters
+            x, y = self.to_cartesian(distances, angles)
 
-        z = [current_position] * len(x)
-        return x, y, z
+            encoder_resolution = 0.2 # 0.2 mm per tick
+            encoder_current_num_of_ticks = int(encoder[1], 16)
+            current_position = (encoder_current_num_of_ticks * encoder_resolution / 1000) # in meters
+
+            z = [current_position] * len(x)
+
+            # transforma do formato ([x1, x2, x3, ...], [y1, y2, y3, ...], [z1, z2, z3, ...])
+            # para o formato ([x1, y1, z1], [x2, y2, z2], [x3, y3, z3], ...)
+            points = list(zip(*(x, y, z)))
+            return points
+        except Exception as e:
+            raise e
+
+    def connect(self):
+        """
+        Cria a conexão Socket com o LiDAR
+        """
+        start_time = datetime.now()
+        while (datetime.now() - start_time).seconds <= 5:
+            try:
+                self.socket_sick = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self.socket_sick.connect((self._ip, self._port))
+                logger.info("socket connection has been created with LiDAR.")
+                return True
+            except:
+                logger.error(f"Trying to connect with LiDAR.")
+                time.sleep(1)
+        logger.error("Timeuot trying to connect with LiDAR.")
+        return False
+    
+    def release(self) -> None:
+        """
+        Termina a Conexão Socket com o LiDAR
+        """
+        self.socket_sick.close()
+        logger.info("Socket connection closed.")
 
     """
     # --- Implementação das mensagens --- #
@@ -121,7 +128,7 @@ class ColaA_TCP():
 
     def login(self):
         """
-        Envia a mensagem para logar como Authorized Client
+        Sends the message to login as Authorized Client
         """
         try:
             data = self.send_socket(
@@ -129,38 +136,35 @@ class ColaA_TCP():
                 buffer = 128
             )
             telegram = data.split()
-            if telegram[2] == "1":
-                print("logado")
-                return True
-            else:
-                return False
         except Exception as e:
-            print(f"Erro ao realizar o login {e}")
-            return False
-    
+            raise e
+
+        if not (telegram[2] == "1"):
+            raise Exception("Could not login in LiDAR.")
+
     def logout(self):
         """
-        Encerra o login de Authorized Client
+        Logout the Authorized Client login
         """
         data = self.send_socket(
             message = "sMN Run",
             buffer = 128
         )
-        telegram = data.split()
-        if telegram[2] == "1":
-            print("deslogado")
-            return True
-        else:
-            return False
+        # telegram = data.split()
+        # if telegram[2] == "1":
+        #     print("deslogado")
+        #     return True
+        # else:
+        #     return False
 
     def read_freq_and_angular_resol(self):
         """
-        Requisita ao sensor o envio das configurações internas de scan:
-            - Scan frequency        ->  Fixo em 600Hz para o LMS4000
-            - Number of sectors     ->  Fixo em 1 setor
-            - Angular resolution    ->  Fixo em 1/12° = 0.0833...°
-            - Start angle           ->
-            - Stop angle            ->
+        Requests to the sensor sends its actual internal configurations.
+        - Scan frequency        ->  Fixed in 600Hz for LMS4000
+        - Number of sectors     ->  Fixed in 1 sector
+        - Angular resolution    ->  Fixed in 1/12° = 0.0833...°
+        - Start angle           ->  Fixed in 55°
+        - Stop angle            ->  Fixed in 125°
         """
         try:
             data = self.send_socket(
@@ -228,20 +232,16 @@ class ColaA_TCP():
             p_data_channel = "01" if data_channel else "00"
             p_further_data_channel = str(further_data_channel)
             p_encoder = "01" if encoder else "00"
-            
             data = self.send_socket(
                 message = f"sWN LMDscandatacfg {p_data_channel} 00 {p_further_data_channel} 1 0 {p_encoder} 00 0 0 0 0 +1",
                 buffer = 128
             )
             telegram = data.split()
-            if telegram[1] == "LMDscandatacfg":
-                print("Configuração do conteúdo do scan efetuada")
-                return True
-            else:
-                return False
         except Exception as e:
-            print(f"Erro em config_scandata_content(): {e}")
-            return False
+            raise e
+        
+        if not (telegram[1] == "LMDscandatacfg"):
+            raise Exception("Error trying to configure scan data.")
     
     def config_scandata_measurement_output(self, start_angle:int, stop_angle:int):
         """
@@ -257,15 +257,11 @@ class ColaA_TCP():
                 buffer = 128
             )
             telegram = data.split()
-            if telegram[1] == "LMPoutputRange":
-                print("Alteração no range angular de saída efetuado")
-                return True
-            else:
-                print(telegram)
-                return False
         except Exception as e:
-            print(f"Erro em config_scandata_measurement_output(): {e}")
-            return False
+            raise e
+        
+        if not (telegram[1] == "LMPoutputRange"):
+            raise Exception("Error trying to configure angular range in the scan data output.")
 
     def set_encoder_settings(self):
         """
@@ -277,21 +273,24 @@ class ColaA_TCP():
         """
         Section "4.6.7 Reset encoder values" from the Sick Telegram Listing
         """
-        data = self.send_socket(
-            message = "sMN LIDrstencoderinc",
-            buffer = 128
-        )
-        if data[2] == "0":
-            return True
-        else:
-            return False
+        try:
+            data = self.send_socket(
+                message = "sMN LIDrstencoderinc",
+                buffer = 128
+            )
+        except Exception as e:
+            raise e
+        
+        if (data[2] == "0"):
+            raise Exception("Error trying to reset encoder values.")
     
     def poll_one_telegram(self):
-        data = self.send_socket(
-            message = 'sRN LMDscandata',
-            buffer = 10240
-        )
-        # transforma do formato ([x1, x2, x3, ...], [y1, y2, y3, ...], [z1, z2, z3, ...])
-        # para o formato ([x1, y1, z1], [x2, y2, z2], [x3, y3, z3], ...)
-        points = list(zip(*self.extract_telegram(data)))
-        return points
+        try:
+            data = self.send_socket(
+                message = 'sRN LMDscandata',
+                buffer = 10240
+            )
+            points = self.extract_telegram(data)
+            return points
+        except Exception as e:
+            raise e

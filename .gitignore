@@ -9,6 +9,7 @@ env/
 
 # Arquivos de registro
 *.log
+/logs
 
 # Arquivos de compilação Python
 *.pyo
