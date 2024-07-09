@@ -36,17 +36,31 @@ class LMS4000():
 
         # if is connected and the parameterization is done
         try:
-            start_time = datetime.now()
-            while (datetime.now() - start_time).seconds <= 10:
+            old_Z_value = 0.0
+            same_Z_values_counter = 0
+            while True:
                 points = self._com.poll_one_telegram()
-                self._pcd.extend(points)
 
-                # print(points[0][2]) # printing the z axis to debug
+                actual_Z_value = points[0][2]
+                if (actual_Z_value<old_Z_value):    # the lidar is mooving backward
+                    break
+                elif (actual_Z_value==old_Z_value): # the lidar is no longer mooving
+                    same_Z_values_counter+=1
+                    if same_Z_values_counter == 10: # stopped for too long
+                        break
+                else:
+                    old_Z_value = actual_Z_value
+
+                self._pcd.extend(points)
                 sleep(0.25)
-                
+
             self._com.release() # Finish the connection with the sensor after the measurement
         except Exception as e:
             logger.error(e)
+            return False
+        
+        if len(self._pcd) == 0:
+            logger.error("Despite no errors, no points were loaded.")
             return False
 
         logger.info("LiDAR data acquisition routine done.")
