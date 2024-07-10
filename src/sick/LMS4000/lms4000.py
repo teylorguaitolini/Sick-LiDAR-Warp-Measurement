@@ -37,23 +37,32 @@ class LMS4000():
         # if is connected and the parameterization is done
         try:
             old_Z_value = 0.0
-            same_Z_values_counter = 0
+            same_Z_value_counter = 0
+            # --- Loop while Beg --- #
             while True:
                 points = self._com.poll_one_telegram()
 
-                actual_Z_value = points[0][2]
-                if (actual_Z_value<old_Z_value):    # the lidar is mooving backward
+                current_Z_value = points[0][2]
+                if (current_Z_value<old_Z_value):    # the lidar is mooving backward
+                    logger.info("Data aquisition finished because the lidar was mooving backward.")
                     break
-                elif (actual_Z_value==old_Z_value): # the lidar is no longer mooving
-                    same_Z_values_counter+=1
-                    if same_Z_values_counter == 10: # stopped for too long
+                elif (current_Z_value==old_Z_value): # the lidar is no longer mooving
+                    same_Z_value_counter+=1
+                    if same_Z_value_counter == 200:  # stopped for too long, 2.0 s
+                        logger.info("Data aquisition finished because the lidar was not mooving.")
                         break
-                else:
-                    old_Z_value = actual_Z_value
+                else:                                # still mooving forward
+                    old_Z_value = current_Z_value
+                    same_Z_value_counter = 0
 
                 self._pcd.extend(points)
-                sleep(0.25)
 
+                # Response time of 4.8 ms
+                # from performance technical details in datasheet
+                # sleep(4.8/1000)  
+                # but I will use more time, 10 ms, so:
+                sleep(10/1000)
+            # --- Loop while End --- #
             self._com.release() # Finish the connection with the sensor after the measurement
         except Exception as e:
             logger.error(e)

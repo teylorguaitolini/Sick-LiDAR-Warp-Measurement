@@ -40,8 +40,8 @@ class Api:
         try:
             uvicorn.run(
                         self.app, 
-                        host="0.0.0.0", 
-                        port=8080,
+                        host=self._conf.api_host, 
+                        port=self._conf.api_port,
                         log_config=None,  # Disable default Uvicorn logging configuration
                         log_level="info"
                     )

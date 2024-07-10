@@ -7,6 +7,8 @@ class Config:
         # App
         self._app_save = False
         # Api
+        self._api_host = ""
+        self._api_port = 0
         self._api_save = False
         self._distance = 0
         # LMS4000
@@ -24,8 +26,17 @@ class Config:
     @property
     def app_save(self):
         return self._app_save
+    # --- --- #
     
     # --- Api --- #
+    @property
+    def api_host(self):
+        return self._api_host
+    
+    @property
+    def api_port(self):
+        return self._api_port
+
     @property
     def api_save(self):
         return self._api_save
@@ -33,6 +44,7 @@ class Config:
     @property
     def distance(self):
         return self._distance
+    # --- --- #
     
     # --- LMS4000 --- #
     @property
@@ -50,6 +62,7 @@ class Config:
     @property
     def LMS4000_stop_angle(self):
         return self._LMS4000_stop_angle
+    # --- --- #
     
     # --- LMS5xx --- #
     @property
@@ -66,7 +79,8 @@ class Config:
     
     @property
     def LMS5xx_stop_angle(self):
-        return self._LMS5xx_stop_angles
+        return self._LMS5xx_stop_angle
+    # --- --- #
 
     def read_config_file(self, DIR:str):
         """
@@ -84,6 +98,8 @@ class Config:
             self._app_save = True if str(config["App"]["save"]).upper() == "TRUE" else False
 
             # Api
+            self._api_host = str(config["Api"]["host"])
+            self._api_port = int(config["Api"]["port"])
             self._api_save = True if str(config["Api"]["save"]).upper() == "TRUE" else False
             self._distance = int(config["Api"]["distance"])
 

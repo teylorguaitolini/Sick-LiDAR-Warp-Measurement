@@ -1,0 +1,4 @@
+open3d==0.18.0
+pyvista==0.43.9
+fastapi==0.111.0
+uvicorn==0.30.1

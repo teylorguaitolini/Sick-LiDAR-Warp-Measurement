@@ -30,11 +30,12 @@ class PointCloudManager:
         print(f"Point cloud saved to {filename}")
 
     def filter_by_distance(self, distance:int):
-        # Filtra os pontos da nuvem onde a coordenada Y é maior que a distância especificada
-        points = np.asarray(self.point_cloud.points)
-        filtered_points = points[points[:, 1] <= distance]
-        self.point_cloud.points = o3d.utility.Vector3dVector(filtered_points)
-        print(f"Points with Y coordinate greater than {distance} have been removed.")
+        if (distance>0):
+            # Filtra os pontos da nuvem onde a coordenada Y é maior que a distância especificada
+            points = np.asarray(self.point_cloud.points)
+            filtered_points = points[points[:, 1] <= distance]
+            self.point_cloud.points = o3d.utility.Vector3dVector(filtered_points)
+            print(f"Points with Y coordinate greater than {distance} have been removed.")
     
     def filter_statistical_outliers(self, nb_neighbors=20, std_ratio=2.0):
         cl, ind = self.point_cloud.remove_statistical_outlier(nb_neighbors=nb_neighbors, std_ratio=std_ratio)
