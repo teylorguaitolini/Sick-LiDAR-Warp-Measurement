@@ -1,8 +1,5 @@
 import uvicorn
 from config.config import Config
-from datetime import datetime
-from os.path import join, exists
-from os import makedirs
 from sick.LMS4000.lms4000 import LMS4000
 # from sick.LMS5xx.lms5xx import LMS5xx
 from utils.PointCloudManager import PointCloudManager
@@ -22,7 +19,7 @@ class Api:
 
         # --- define the API routes --- #
         @self.app.post("/")
-        async def start():
+        async def measurement():
             logger.info("Measurement request received.")
             measurement_sts = self._measurement_rotine()
             if measurement_sts:
@@ -67,40 +64,13 @@ class Api:
             try:
                 # carrega a nuvem no pcm
                 pcm.load_from_list(lidar.pcd)
-
-                # caso seja para salvar, cria o diretorio se não existir
-                if self._conf.api_save:
-                    file_dir = join(self._DIR, "Measurements", str(datetime.now().strftime('%Y%m%d_%H%M%S')))
-                    if not exists(file_dir):
-                        makedirs(file_dir)
-
-                    # caso seja para salvar, salva a nuvem inicial
-                    pcm.save_to_file(
-                        filename=join(file_dir, "initial"),
-                        format="pcd"
-                        )
                 
                 # Aplica filtros na nuvem
                 pcm.filter_by_distance(self._conf.distance)
-                pcm.filter_statistical_outliers()
 
                 # compute warping
-                warping_list = []
-                warping_list.append(pcm.compute_warping())
-                warping_list.append(pcm.compute_warping2())
-                warping_list.append((warping_list[0] + warping_list[1])/2)
-
-                # caso seja para salvar, salva a nuvem final e escreve resultado da mediçao
-                if self._conf.api_save:
-                    pcm.save_to_file(
-                        filename=join(file_dir, "final"),
-                        format="pcd"
-                        )
-                    self._write_measurement_result(join(file_dir, "Measurement.txt"), warping_list)
-                    
-                # Open the visualization of the pcd
-                if not self._conf.api_save:
-                    pcm.visualize(visualize_plane=True, warping_list=warping_list)
+                pcm.WMUSS(self._conf.api_save, self._DIR)
+                # pcm.WMLSS()
                 
                 return True
             except Exception as e:

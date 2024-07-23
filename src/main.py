@@ -28,7 +28,7 @@ if __name__ == "__main__":
 
             elif sys.argv[1] == "app":
                 logger.info("Starting App...")
-                app = App(conf)
+                app = App(conf, DIR)
                 app.start()
 
             else:
