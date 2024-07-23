@@ -6,7 +6,7 @@ from os.path import join, exists
 from os import makedirs
 from datetime import datetime
 from config.logger_config import logger
-from scipy.signal import find_peaks
+#from scipy.signal import find_peaks
 from sklearn.linear_model import LinearRegression
 
 class PointCloudManager:
@@ -62,7 +62,7 @@ class PointCloudManager:
         except Exception as e:
             raise e
     
-    def WMUSS(self, save:bool, DIR:str):
+    def WMUSS(self, save: bool, DIR: str):
         """
         ### WMUSS (Warping Measurement for Upper Surface Scan)
         - Just measures the warping of the top slab in a stack.
@@ -75,7 +75,7 @@ class PointCloudManager:
                 if not exists(file_dir):
                     makedirs(file_dir)
                 # save the point cloud
-                self.save_to_file(join(file_dir, "initial"))
+                self.save_to_file(join(file_dir, "Measurement"))
 
             points = np.asarray(self.point_cloud.points)
 
@@ -88,20 +88,26 @@ class PointCloudManager:
             ucl_y = mean_y + 3 * std_y
             lcl_y = mean_y - 3 * std_y
 
-            # Regressão linear para Y em relação a Z
-            z_reshaped = z.reshape(-1, 1)
-            reg = LinearRegression().fit(z_reshaped, y)
+            # Filtrar os pontos dentro dos limites de controle
+            within_control_limits = (y >= lcl_y) & (y <= ucl_y)
+            filtered_points = points[within_control_limits]
+            filtered_y = y[within_control_limits]
+            filtered_z = z[within_control_limits]
+
+            # Regressão linear para Y em relação a Z com pontos filtrados
+            z_reshaped = filtered_z.reshape(-1, 1)
+            reg = LinearRegression().fit(z_reshaped, filtered_y)
             y_pred = reg.predict(z_reshaped)
-            
+
             # Calcular desvios dos pontos Y em relação à linha de regressão
-            deviations = y - y_pred
+            deviations = filtered_y - y_pred
             max_deviation = float(np.max(np.abs(deviations)))
-            max_deviation_point = points[np.argmax(np.abs(deviations))]
+            max_deviation_point = filtered_points[np.argmax(np.abs(deviations))]
 
             # Plotar os pontos, a linha de regressão e o ponto de maior desvio
             plt.figure(figsize=(10, 6))
-            plt.scatter(z, y, s=1, c='blue', marker='.', label='Points')
-            plt.plot(z, y_pred, color='orange', label='Linear Regression')
+            plt.scatter(filtered_z, filtered_y, s=1, c='blue', marker='.', label='Filtered Points')
+            plt.plot(filtered_z, y_pred, color='orange', label='Linear Regression')
             plt.axhline(mean_y, color='green', linestyle='-', linewidth=2, label='Mean')
             plt.axhline(ucl_y, color='red', linestyle='--', linewidth=2, label='UCL')
             plt.axhline(lcl_y, color='red', linestyle='--', linewidth=2, label='LCL')
@@ -126,6 +132,7 @@ class PointCloudManager:
             return max_deviation
         except Exception as e:
             raise e
+
     
     def WMLSS(self, save:bool, DIR:str):
         """
