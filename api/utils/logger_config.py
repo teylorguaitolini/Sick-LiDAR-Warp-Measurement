@@ -1,11 +1,10 @@
 import logging
 from logging.handlers import TimedRotatingFileHandler
 from os import getcwd, makedirs
-from os.path import exists, dirname, join
+from os.path import exists, join
 
 def setup_logger():
-    DIR = dirname(getcwd())
-    log_dir = join(DIR, "logs")
+    log_dir = join(getcwd(), "logs")
 
     # Ensure the logs directory exists
     if not exists(log_dir):

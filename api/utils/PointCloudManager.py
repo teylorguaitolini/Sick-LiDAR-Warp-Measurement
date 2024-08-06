@@ -1,13 +1,10 @@
-import inspect
 import open3d as o3d
 import numpy as np
 import matplotlib.pyplot as plt
 from os.path import join, exists
 from os import makedirs
 from datetime import datetime
-from config.logger_config import logger
-#from scipy.signal import find_peaks
-from sklearn.linear_model import LinearRegression
+from utils.logger_config import logger
 
 class PointCloudManager:
     def __init__(self):
@@ -68,13 +65,13 @@ class PointCloudManager:
         - Just measures the warping of the top slab in a stack.
         """
         try:
-            # create the directory to save the results
+            # Create the directory to save the results
             file_dir = ""
             if save:
                 file_dir = join(DIR, "Measurements", str(datetime.now().strftime('%Y%m%d_%H%M%S')))
                 if not exists(file_dir):
                     makedirs(file_dir)
-                # save the point cloud
+                # Save the point cloud
                 self.save_to_file(join(file_dir, "Measurement"))
 
             points = np.asarray(self.point_cloud.points)
@@ -94,20 +91,14 @@ class PointCloudManager:
             filtered_y = y[within_control_limits]
             filtered_z = z[within_control_limits]
 
-            # Regressão linear para Y em relação a Z com pontos filtrados
-            z_reshaped = filtered_z.reshape(-1, 1)
-            reg = LinearRegression().fit(z_reshaped, filtered_y)
-            y_pred = reg.predict(z_reshaped)
-
-            # Calcular desvios dos pontos Y em relação à linha de regressão
-            deviations = filtered_y - y_pred
+            # Calcular desvios dos pontos Y em relação à média
+            deviations = filtered_y - mean_y
             max_deviation = float(np.max(np.abs(deviations)))
             max_deviation_point = filtered_points[np.argmax(np.abs(deviations))]
 
-            # Plotar os pontos, a linha de regressão e o ponto de maior desvio
+            # Plotar os pontos, a linha de média e o ponto de maior desvio
             plt.figure(figsize=(10, 6))
             plt.scatter(filtered_z, filtered_y, s=1, c='blue', marker='.', label='Filtered Points')
-            plt.plot(filtered_z, y_pred, color='orange', label='Linear Regression')
             plt.axhline(mean_y, color='green', linestyle='-', linewidth=2, label='Mean')
             plt.axhline(ucl_y, color='red', linestyle='--', linewidth=2, label='UCL')
             plt.axhline(lcl_y, color='red', linestyle='--', linewidth=2, label='LCL')
@@ -121,9 +112,6 @@ class PointCloudManager:
             if save:
                 # Saves the PNG
                 plt.savefig(join(file_dir, "Measurement.png"))
-
-                # Saves the result in a txt file
-                self._write_measurement_results(join(file_dir, "Measurement.txt"), max_deviation)
             else:
                 plt.show()
                 # Open the visualization of the pcd
@@ -132,7 +120,6 @@ class PointCloudManager:
             return max_deviation
         except Exception as e:
             raise e
-
     
     def WMLSS(self, save:bool, DIR:str):
         """
@@ -176,11 +163,3 @@ class PointCloudManager:
                 self.point_cloud.clear()
         except Exception as e:
             raise e
-        
-    def _write_measurement_results(self, filename:str, warping_result:float):
-        try:
-            with open(filename, 'a') as file:
-                file.write(f"Measured Warping by Method {inspect.stack()[1][3]}: {(warping_result*100):.2f} cm\n")
-                logger.info(f"Measurement Result was saved successfully in {filename}.")
-        except Exception as e:
-            logger.error(f"Ocorreu um erro em write_measurement_result(): {e}.")

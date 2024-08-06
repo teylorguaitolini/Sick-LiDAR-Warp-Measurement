@@ -1,7 +1,7 @@
 from time import sleep
 from datetime import datetime
-from sick.LMS4000.CoLaA_TCP import ColaA_TCP
-from config.logger_config import logger
+from utils.CoLaA_TCP import ColaA_TCP
+from utils.logger_config import logger
 
 class LMS4000():
     """
