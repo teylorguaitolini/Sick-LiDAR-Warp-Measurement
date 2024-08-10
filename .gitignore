@@ -1,37 +1,38 @@
-# Arquivos gerados automaticamente
+# Automatically generated files
 __pycache__/
 *.pyc
 
-# Ambientes virtuais
+# Virtual environments
 venv/
 env/
 *.env
 
-# Arquivos de registro
-*.log
-/logs
+# Log files
+logs
 
-# Arquivos de compilação Python
+# Python compilation files
 *.pyo
 *.pyd
 
-# Diretório de distribuição
+# Distribution directory
 dist/
 build/
 
-# Arquivos de configuração de IDE
+# IDE configuration files
 .vscode/
 .idea/
 
-# Cache de testes
+# Test cache
 .pytest_cache/
 
-# Dependências geradas pelo pip
+# Pip-generated dependencies
 /.venv/
 pip-wheel-metadata/
 
-# Ignore arquivos de configuração local
+# Ignore local configuration files
 *.cfg
 
 # Ignore files from the Measurements folder
 Measurements/
+
+.pio
