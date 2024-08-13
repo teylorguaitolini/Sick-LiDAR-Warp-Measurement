@@ -35,4 +35,6 @@ pip-wheel-metadata/
 # Ignore files from the Measurements folder
 Measurements/
 
-.pio
+.pio/
+
+PCDs/

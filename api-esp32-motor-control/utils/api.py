@@ -1,7 +1,5 @@
 import uvicorn
-from utils import ESP32Serial
-from utils import logger
-from utils import Config
+from utils import ESP32Serial, Config, logger
 from fastapi import FastAPI
 from datetime import datetime
 
@@ -43,7 +41,7 @@ class API:
                 self.app, 
                 host=self.conf.host, 
                 port=self.conf.port,
-                log_config=None,
+                log_config=None
             )
         except KeyboardInterrupt:
             logger.info("The API was finished by a KeyboardInterrupt.")
