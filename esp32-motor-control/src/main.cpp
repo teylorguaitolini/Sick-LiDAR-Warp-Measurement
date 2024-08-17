@@ -1,11 +1,7 @@
 #include <Arduino.h>
-//#include "HardwareSerial.h"
-//#include <esp_task_wdt.h>
 
 const int stepPin = 5;
 const int dirPin = 18;
-
-//HardwareSerial SerialPort(1);
 
 void performMotorRoutine();
 void rotateStepperR(int numRotations, int speed);

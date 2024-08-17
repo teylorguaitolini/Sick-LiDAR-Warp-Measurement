@@ -1,4 +1,3 @@
-import requests
 from os import getcwd, makedirs
 from os.path import join, exists
 from datetime import datetime
@@ -27,20 +26,6 @@ class Measurement:
             
             # --- LiDAR sensor object --- #
             lidar = LMS4000(self._conf.LMS4000_lidar_ip, self._conf.LMS4000_lidar_port, self._conf.LMS4000_start_angle, self._conf.LMS4000_stop_angle)
-
-            # Start the motor
-            logger.info("Starting the motor.")
-            url = f"http://{self._conf._API_MOTOR_ip}:{self._conf._API_MOTOR_port}/start"
-            response = requests.post(url)
-            if response.status_code == 200:
-                response_data = response.json()
-                message = response_data.get("message")
-            else:
-                raise Exception(f"Error in requisition: {response.status_code}")
-            
-            # Check if the motor is running
-            if not (message == "running"):
-                raise Exception(f"Error starting the motor: {message}")
             
             logger.info("Motor started successfully.")
 

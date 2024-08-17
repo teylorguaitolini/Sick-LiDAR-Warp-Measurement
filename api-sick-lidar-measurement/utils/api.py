@@ -19,20 +19,20 @@ class API:
 
                 logger.info("Warping Measurement Success")
 
-                return {"Status": "success"}    
+                return {"message": "success"}    
             except:
                 logger.error("Warping Measurement Error.")
-                return {"Status": "error"}
+                return {"message": "error"}
         
         @self.app.get("/warping")
         def get_warping():
             logger.info("Warping result request received.")
-            return {"warping": f"{(self.measure.warping*100):.3f}"}
+            return {"warping": f"{self.measure.warping}"}
         
         @self.app.get("/warping_image")
         def get_warping_image():
             logger.info("Warping image request received.")
-            return self.measure.warping_image
+            return {"warping_image": self.measure.warping_image}
 
     def start(self):
         try:
