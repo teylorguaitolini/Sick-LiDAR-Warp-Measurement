@@ -1,4 +1,5 @@
 from time import sleep
+from numpy import abs
 from datetime import datetime
 from utils.CoLaA_TCP import ColaA_TCP
 from utils.logger_config import logger
@@ -36,11 +37,12 @@ class LMS4000():
         
             old_Z_value = 0.0
             same_Z_value_counter = 0
+            self._com.poll_one_telegram() # to clear the buffer
             # --- Loop while Beg --- #
             while True:
                 points = self._com.poll_one_telegram()
 
-                current_Z_value = points[0][2]
+                current_Z_value = abs(points[0][2])
                 if (current_Z_value<old_Z_value):    # the lidar is mooving backward
                     logger.info("Data aquisition finished because the lidar was mooving backward.")
                     break
@@ -82,7 +84,7 @@ class LMS4000():
             self._com.login()
             # self._com.read_freq_and_angular_resol()
             self._com.config_scandata_content()
-            # self._com.config_scandata_measurement_output(self._start_angle, self._stop_angle)
+            self._com.config_scandata_measurement_output(self._start_angle, self._stop_angle)
             # self._com.set_encoder_settings()
             self._com.reset_encoder_values()    # to ensure that the encoder will start at 0 mm
             self._com.logout()

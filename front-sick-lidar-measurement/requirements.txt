@@ -1,2 +1,4 @@
 requests==2.32.3
 streamlit==1.37.1
+open3d==0.18.0
+pillow==10.4.0

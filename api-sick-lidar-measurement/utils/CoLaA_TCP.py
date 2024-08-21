@@ -2,7 +2,7 @@ import socket
 import math
 import struct
 import time
-from datetime import datetime
+import numpy as np
 from utils.logger_config import logger
 
 class ColaA_TCP():
@@ -85,7 +85,13 @@ class ColaA_TCP():
 
             x, y = self.to_cartesian(distances, angles)
 
-            encoder_resolution = 0.2 # 0.2 mm per tick
+            # deslocando x para totalmente positivo, referencial 0
+            x = np.array(x)
+            minv = np.min(x)
+            dist = np.abs(minv)
+            x = x + dist
+
+            encoder_resolution = (7/1500) # mm per tick
             encoder_current_num_of_ticks = int(encoder[1], 16)
             current_position = (encoder_current_num_of_ticks * encoder_resolution / 1000) # in meters
 
@@ -259,7 +265,7 @@ class ColaA_TCP():
             )
             telegram = data.split()
         except Exception as e:
-            raise e
+            raise Exception(f"Error in config_scandata_measurement_output(): {e}")
         
         if not (telegram[1] == "LMPoutputRange"):
             raise Exception("Error trying to configure angular range in the scan data output.")

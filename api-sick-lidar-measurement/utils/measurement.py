@@ -23,6 +23,8 @@ class Measurement:
     def measurement_routine(self):
         try:
             logger.info("Starting measurement.")
+
+            self._conf.read_config_file()
             
             # --- LiDAR sensor object --- #
             lidar = LMS4000(self._conf.LMS4000_lidar_ip, self._conf.LMS4000_lidar_port, self._conf.LMS4000_start_angle, self._conf.LMS4000_stop_angle)
@@ -39,10 +41,11 @@ class Measurement:
             pcm.load_from_list(lidar.pcd)
             
             # Apply filters to the point cloud
-            pcm.filter_by_distance(self._conf.distance)
+            for _ in range(3):
+                pcm.filter_by_distance(self._conf.distance)
 
             # compute warping
-            self._warping, self._warping_image = pcm.WMUSS()
+            self._warping, self._warping_image = pcm.WMLSS()
             # pcm.WMLSS()
 
             # Saving the Point Cloud
