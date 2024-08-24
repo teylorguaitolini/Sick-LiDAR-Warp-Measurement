@@ -11,6 +11,7 @@ class Measurement:
         self._conf = conf
         self._warping = 0.0
         self._warping_image = None
+        self._pcd_json = None
 
     @property
     def warping(self):
@@ -19,6 +20,10 @@ class Measurement:
     @property
     def warping_image(self):
         return self._warping_image
+    
+    @property
+    def pcd_json(self):
+        return self._pcd_json
     
     def measurement_routine(self):
         try:
@@ -39,16 +44,24 @@ class Measurement:
 
             # Load point cloud into pcm
             pcm.load_from_list(lidar.pcd)
+
+            # values must be read from the config file
+            pcm.encoder_to_real_distance(1500, 7)
             
             # Apply filters to the point cloud
             for _ in range(3):
                 pcm.filter_by_distance(self._conf.distance)
+            
+            # data adequacy to plot the point cloud
+            pcm.data_adequacy()
 
-            # compute warping
-            self._warping, self._warping_image = pcm.WMLSS()
-            # pcm.WMLSS()
+            # compute warping and get the warping image
+            self._warping, self._warping_image = pcm.virtualTwine()
 
-            # Saving the Point Cloud
+            # base64 PCD
+            self._pcd_json = pcm.pcd_json()
+
+            # Saving the Point Cloud as a PCD file
             DIR = join(getcwd(), "PCDs")
             if not exists(DIR):
                 makedirs(DIR)

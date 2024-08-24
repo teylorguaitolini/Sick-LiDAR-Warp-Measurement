@@ -33,27 +33,49 @@ class LMS4000():
 
             self._parameterize()
 
-            # if is connected and the parameterization is done
-        
+            # if is connected and the parameterization is done, start the data acquisition
+
+            direction = ""
+            direction_flag = False
             old_Z_value = 0.0
             same_Z_value_counter = 0
             self._com.poll_one_telegram() # to clear the buffer
+
             # --- Loop while Beg --- #
             while True:
                 points = self._com.poll_one_telegram()
 
-                current_Z_value = abs(points[0][2])
-                if (current_Z_value<old_Z_value):    # the lidar is mooving backward
-                    logger.info("Data aquisition finished because the lidar was mooving backward.")
-                    break
-                elif (current_Z_value==old_Z_value): # the lidar is no longer mooving
+                # --- Logic to stop the data acquisition --- #
+                current_Z_value = points[0][2]
+
+                if not direction_flag:
+                    if current_Z_value > 0:
+                        direction = "R"
+                        logger.info("Direction is to the right.")
+                        direction_flag = True
+                    elif current_Z_value < 0:
+                        direction = "L"
+                        logger.info("Direction is to the left.")
+                        direction_flag = True
+                
+                if direction == "R":
+                    if (current_Z_value<old_Z_value):    # the lidar is mooving to the left now
+                        logger.info("Data aquisition finished because the lidar changed the direction.")
+                        break
+                elif direction == "L":
+                    if (current_Z_value>old_Z_value):   # the lidar is mooving to the right now
+                        logger.info("Data aquisition finished because the lidar changed the direction.")
+                        break
+                
+                if (current_Z_value==old_Z_value):      # the lidar is no longer mooving
                     same_Z_value_counter+=1
-                    if same_Z_value_counter == 200:  # stopped for too long, 2.0 s
+                    if same_Z_value_counter == 200:     # stopped for too long, 2.0 s
                         logger.info("Data aquisition finished because the lidar was not mooving.")
                         break
-                else:                                # still mooving forward
+                else:                                   # still mooving to the right
                     old_Z_value = current_Z_value
                     same_Z_value_counter = 0
+                # ---  --- #
 
                 self._pcd.extend(points)
 

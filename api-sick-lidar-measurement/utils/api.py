@@ -33,6 +33,11 @@ class API:
         def get_warping_image():
             logger.info("Warping image request received.")
             return {"warping_image": self.measure.warping_image}
+        
+        @self.app.get("/pcd")
+        def get_pcd():
+            logger.info("PCD request received.")
+            return {"pcd": self.measure.pcd_json}
 
     def start(self):
         try:

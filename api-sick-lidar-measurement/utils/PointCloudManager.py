@@ -2,6 +2,7 @@ import io
 import base64
 import open3d as o3d
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 from utils.logger_config import logger
 
@@ -26,8 +27,73 @@ class PointCloudManager:
             logger.info(f"Point cloud saved to {filename}")
         except Exception as e:
             raise Exception(f"Error in saving point cloud to file: {e}")
+    
+    def pcd_json(self):
+        try:
+            points = np.asarray(self.point_cloud.points)
+            df = pd.DataFrame(points, columns=['x', 'y', 'z'])
+            json_data = df.to_json(orient='records')
+
+            return json_data
+        except Exception as e:
+            raise Exception(f"Error in generating JSON PCD: {e}")
+        
+    def encoder_to_real_distance(self, pulses_per_rev: float, mm_per_rev: float):
+        """
+        Converts encoder numbers to real distance in meters.
+
+        :param: pulses_per_rev (float): The number of pulses per revolution of the encoder.
+        :param: mm_per_rev (float): The distance in millimeters covered by one revolution of the encoder.
+        """
+        try:
+            points = np.asarray(self.point_cloud.points)
+
+            z = points[:, 2]
+
+            # Converting encoder number to real distance in meters
+            ratio = (mm_per_rev / pulses_per_rev) # mm per tick (pulse)
+            z = z * (ratio / 1000)
+
+            # Updating the point cloud with the adjusted values
+            points[:, 2] = z
+            self.point_cloud.points = o3d.utility.Vector3dVector(points)
+        except Exception as e:
+            raise Exception(f"Error in encoder to real distance conversion: {e}")
+    
+    def data_adequacy(self):
+        """
+
+        """
+        try:
+            points = np.asarray(self.point_cloud.points)
+
+            x = points[:, 0]
+            z = points[:, 2]
+
+            # Shifting x to be fully positive, with a reference at 0
+            minv = np.min(x)
+            if minv < 0:
+                x = x + np.abs(minv)
+
+            # Shifting z to be fully positive, with a reference at 0, if moving to the left
+            minv = np.min(z)
+            if minv < 0:
+                z = z + np.abs(minv)
+
+            # Updating the point cloud with the adjusted values
+            points[:, 0] = x
+            points[:, 2] = z
+            self.point_cloud.points = o3d.utility.Vector3dVector(points)
+        except Exception as e:
+            raise Exception(f"Error in data adequacy check: {e}")
+
 
     def filter_by_distance(self, distance: int):
+        """
+        ### filter_by_distance
+
+        :param distance: The distance between LiDAR and the object.
+        """
         try:
             # Aplicar o filtro de outliers
             self._filter_statistical_outliers()
@@ -38,7 +104,6 @@ class PointCloudManager:
             # Filtrar os pontos com base na distância especificada
             if distance > 0:
                 filtered_points = filtered_points[filtered_points[:, 1] <= distance]
-                logger.info(f"Points with Y coordinate greater than {distance} have been removed.")
             
             # Calcular a moda das coordenadas Y
             y_coordinates = np.round(filtered_points[:, 1], 2)
@@ -61,82 +126,33 @@ class PointCloudManager:
         except Exception as e:
             raise Exception(f"Error in filtering by distance: {e}")
     
-    def WMUSS(self):
+    def virtualTwine(self):
         """
-        ### WMUSS (Warping Measurement for Upper Surface Scan)
-        - Just measures the warping of the top slab in a stack.
-        """
-        try:
-            points = np.asarray(self.point_cloud.points)
-
-            y = points[:, 1]
-            z = points[:, 2]
-
-            # Calculate the mean and control limits
-            mean_y = np.mean(y)
-            std_y = np.std(y)
-            ucl_y = mean_y + 3 * std_y
-            lcl_y = mean_y - 3 * std_y
-
-            # Filter the points within the control limits
-            within_control_limits = (y >= lcl_y) & (y <= ucl_y)
-            filtered_points = points[within_control_limits]
-            filtered_y = y[within_control_limits]
-            filtered_z = z[within_control_limits]
-
-            # Calculate deviations of Y points from the mean
-            deviations = filtered_y - mean_y
-            max_deviation = float(np.max(np.abs(deviations)))
-            max_deviation_point = filtered_points[np.argmax(np.abs(deviations))]
-
-            # Plot the points, mean line, and max deviation point
-            plt.figure(figsize=(10, 6))
-            plt.scatter(filtered_z, filtered_y, s=1, c='blue', marker='.', label='Filtered Points')
-            plt.axhline(mean_y, color='green', linestyle='-', linewidth=2, label='Mean')
-            plt.axhline(ucl_y, color='red', linestyle='--', linewidth=2, label='UCL')
-            plt.axhline(lcl_y, color='red', linestyle='--', linewidth=2, label='LCL')
-            plt.scatter(max_deviation_point[2], max_deviation_point[1], color='red', s=50, label='Max Deviation')
-            plt.xlabel('Z')
-            plt.ylabel('Y')
-            plt.grid(True)
-            plt.legend()
-            plt.title(f'Max Deviation (Warping): {(max_deviation*100):.3f} cm')
-
-            # Save the image to a byte buffer
-            buffer = io.BytesIO()
-            plt.savefig(buffer, format='png')
-            buffer.seek(0)  # Go back to the beginning of the buffer
-            plt.close()  # Close the figure to free memory
-            img_str = base64.b64encode(buffer.getvalue()).decode('utf-8')
-
-            return max_deviation, img_str
-
-        except Exception as e:
-            raise Exception(f"Error in WMUSS: {e}")
-    
-    def WMLSS(self):
-        """
-        ### WMLSS (Warping Measurement for Lateral Stack Scan)
-        - Method for lateral measurement.
+        ### virtualTwine
+        - Warping Measurement for Lateral Stack Scan.
         - Virtual Twine Method.
         """
         try:
             points = np.asarray(self.point_cloud.points)
 
-            deviation = 0.0
-
             x = points[:, 0]
             z = points[:, 2]
 
-            # Suponha que calculamos o desvio como a diferença média dos pontos z
-            deviation = np.mean(x)  # Apenas um exemplo de cálculo
+            # here comes the algorithm to calculate the deviation
+            deviation = self._virtualTwineAlgorithm(x, z)
 
             # Gerar a imagem
             plt.figure(figsize=(10, 6))
             plt.scatter(z, x, c='blue', label='Points')
             plt.axhline(y=deviation, color='red', linestyle='--', label='Deviation')
 
-            plt.title('Lateral Stack Scan - WMLSS')
+            # Definir limites dos eixos
+            plt.autoscale(tight=True)
+            n_ticks = 10
+            plt.xticks(np.linspace(min(z), max(z), n_ticks))
+            plt.yticks(np.linspace(min(x), max(x), n_ticks))
+
+            plt.title('Warping Measurement by Virtual Twine Method')
             plt.xlabel('Z axis')
             plt.ylabel('X axis')
             plt.legend()
@@ -152,6 +168,14 @@ class PointCloudManager:
             return deviation, img_str
         except Exception as e:
             raise Exception(f"Error in WMLSS: {e}")
+    
+    def _virtualTwineAlgorithm(self, x: np.ndarray, z: np.ndarray):
+        """
+        ### virtualTwineAlgorithm
+        algorithm to calculate the warping
+        """
+        deviation = 0.0
+        return deviation
     
     def _filter_statistical_outliers(self, nb_neighbors=20, std_ratio=2.0):
         try:

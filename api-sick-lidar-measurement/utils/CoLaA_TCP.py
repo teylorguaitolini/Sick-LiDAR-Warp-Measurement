@@ -85,17 +85,11 @@ class ColaA_TCP():
 
             x, y = self.to_cartesian(distances, angles)
 
-            # deslocando x para totalmente positivo, referencial 0
-            x = np.array(x)
-            minv = np.min(x)
-            dist = np.abs(minv)
-            x = x + dist
-
-            encoder_resolution = (7/1500) # mm per tick
+            # getting encoder values
             encoder_current_num_of_ticks = int(encoder[1], 16)
-            current_position = (encoder_current_num_of_ticks * encoder_resolution / 1000) # in meters
-
-            z = [current_position] * len(x)
+            # multipling by -1 to invert the encoder values
+            encoder_current_num_of_ticks = encoder_current_num_of_ticks * -1
+            z = [encoder_current_num_of_ticks] * len(x)
 
             # transforma do formato ([x1, x2, x3, ...], [y1, y2, y3, ...], [z1, z2, z3, ...])
             # para o formato ([x1, y1, z1], [x2, y2, z2], [x3, y3, z3], ...)
