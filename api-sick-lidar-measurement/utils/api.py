@@ -33,17 +33,12 @@ class API:
         def get_warping_image():
             logger.info("Warping image request received.")
             return {"warping_image": self.measure.warping_image}
-        
-        @self.app.get("/pcd")
-        def get_pcd():
-            logger.info("PCD request received.")
-            return {"pcd": self.measure.pcd_json}
 
     def start(self):
         try:
             uvicorn.run(
                 self.app, 
-                host=self.conf.API_host, 
+                host="0.0.0.0", # localhost
                 port=self.conf.API_port,
                 log_config=None
             )

@@ -4,6 +4,9 @@ import open3d as o3d
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from datetime import datetime
+from os import getcwd, makedirs
+from os.path import join, exists
 from utils.logger_config import logger
 
 class PointCloudManager:
@@ -18,31 +21,27 @@ class PointCloudManager:
         except Exception as e:
             raise Exception(f"Error in loading point cloud from list: {e}")
     
-    def save_to_file(self, filename:str, format='pcd'):
+    def pcd2csv(self, save: bool):
         try:
-            if format == 'pcd' or format == 'ply':
-                o3d.io.write_point_cloud(filename+"."+format, self.point_cloud)
-            else:
-                raise ValueError("Unsupported file format. Use 'pcd' or 'ply'.")
-            logger.info(f"Point cloud saved to {filename}")
-        except Exception as e:
-            raise Exception(f"Error in saving point cloud to file: {e}")
-    
-    def pcd_json(self):
-        try:
-            points = np.asarray(self.point_cloud.points)
-            df = pd.DataFrame(points, columns=['x', 'y', 'z'])
-            json_data = df.to_json(orient='records')
+            if save:
+                points = np.asarray(self.point_cloud.points)
+                df = pd.DataFrame(points, columns=['x', 'y', 'z'])
+                
+                DIR = join(getcwd(), "PCDs")
+                if not exists(DIR):
+                    makedirs(DIR)
+                
+                filename = datetime.now().strftime('%Y%m%d_%H%M%S') + ".csv"
 
-            return json_data
+                df.to_csv(join(DIR, filename), index=False)
         except Exception as e:
             raise Exception(f"Error in generating JSON PCD: {e}")
         
-    def encoder_to_real_distance(self, pulses_per_rev: float, mm_per_rev: float):
+    def encoder_to_real_Z_distance(self, pulses_per_rev: int, mm_per_rev: float):
         """
         Converts encoder numbers to real distance in meters.
 
-        :param: pulses_per_rev (float): The number of pulses per revolution of the encoder.
+        :param: pulses_per_rev (int): The number of pulses per revolution of the encoder.
         :param: mm_per_rev (float): The distance in millimeters covered by one revolution of the encoder.
         """
         try:
@@ -88,7 +87,7 @@ class PointCloudManager:
             raise Exception(f"Error in data adequacy check: {e}")
 
 
-    def filter_by_distance(self, distance: int):
+    def filter_by_Y_distance(self, distance: float, num_iterations: int):
         """
         ### filter_by_distance
 
@@ -105,23 +104,37 @@ class PointCloudManager:
             if distance > 0:
                 filtered_points = filtered_points[filtered_points[:, 1] <= distance]
             
-            # Calcular a moda das coordenadas Y
-            y_coordinates = np.round(filtered_points[:, 1], 2)
-            unique_vals, inverse = np.unique(y_coordinates, return_inverse=True)
-            mode_index = np.bincount(inverse).argmax()
-            mode_y = unique_vals[mode_index]
+            if num_iterations > 0:
+                n = num_iterations
+            else:
+                y_coordinates = np.round(filtered_points[:, 1], 2)
+                std = np.std(y_coordinates)
+                n = int(31 * std)
+            
+            for _ in range(n):
+                # Aplicar o filtro de outliers
+                self._filter_statistical_outliers()
 
-            # Calcular os limites de controle
-            std = np.std(y_coordinates)
-            ucl = mode_y + 3 * std
-            lcl = mode_y - 3 * std
-            logger.info(f"Mode of Y coordinates: {mode_y}, UCL: {ucl}, LCL: {lcl}")
+                # carregar pontos após o filtro de outliers
+                filtered_points = np.asarray(self.point_cloud.points)
 
-            # Aplicar os filtros de controle
-            filtered_points = filtered_points[(y_coordinates <= ucl) & (y_coordinates >= lcl)]
+                # Calcular a moda das coordenadas Y
+                y_coordinates = np.round(filtered_points[:, 1], 2)
+                unique_vals, inverse = np.unique(y_coordinates, return_inverse=True)
+                mode_index = np.bincount(inverse).argmax()
+                mode_y = unique_vals[mode_index]
 
-            # Atualizar os pontos na nuvem de pontos
-            self.point_cloud.points = o3d.utility.Vector3dVector(filtered_points)
+                # Calcular os limites de controle
+                std = np.std(y_coordinates)
+                ucl = mode_y + 3 * std
+                lcl = mode_y - 3 * std
+                logger.info(f"Mode of Y coordinates: {mode_y}, UCL: {ucl}, LCL: {lcl}")
+
+                # Aplicar os filtros de controle
+                filtered_points = filtered_points[(y_coordinates <= ucl) & (y_coordinates >= lcl)]
+
+                # Atualizar os pontos na nuvem de pontos
+                self.point_cloud.points = o3d.utility.Vector3dVector(filtered_points)
             
         except Exception as e:
             raise Exception(f"Error in filtering by distance: {e}")
@@ -139,7 +152,7 @@ class PointCloudManager:
             z = points[:, 2]
 
             # here comes the algorithm to calculate the deviation
-            deviation = self._virtualTwineAlgorithm(x, z)
+            deviation = self._virtualTwineAlgorithm(z, x)
 
             # Gerar a imagem
             plt.figure(figsize=(10, 6))
@@ -169,7 +182,7 @@ class PointCloudManager:
         except Exception as e:
             raise Exception(f"Error in WMLSS: {e}")
     
-    def _virtualTwineAlgorithm(self, x: np.ndarray, z: np.ndarray):
+    def _virtualTwineAlgorithm(self, z: np.ndarray, x: np.ndarray):
         """
         ### virtualTwineAlgorithm
         algorithm to calculate the warping

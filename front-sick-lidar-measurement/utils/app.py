@@ -35,7 +35,7 @@ class APP:
         try:
 
             # Display warping value
-            url = f"http://localhost:{self._conf.API_LIDAR_port}/warping"
+            url = f"http://{self._conf._API_LIDAR_host}:{self._conf.API_LIDAR_port}/warping"
             response = requests.get(url)
             if response.status_code == 200:
                 response_data = response.json()
@@ -45,7 +45,7 @@ class APP:
                 raise Exception(f"Error in requisition. Status Code: {response.status_code}")
             
             # Display warping image
-            url = f"http://localhost:{self._conf.API_LIDAR_port}/warping_image"
+            url = f"http://{self._conf._API_LIDAR_host}:{self._conf.API_LIDAR_port}/warping_image"
             response = requests.get(url)
             if response.status_code == 200:
                 response_data = response.json()
@@ -57,33 +57,33 @@ class APP:
                 raise Exception(f"Error in requisition. Status Code: {response.status_code}")
             
             # Display point cloud
-            url = f"http://localhost:{self._conf.API_LIDAR_port}/pcd"
-            response = requests.get(url)
-            if response.status_code == 200:
-                response_data = response.json()
-                json_pcd = response_data.get("pcd")
-                df = pd.read_json(json_pcd, orient='records')
-                points = df.to_numpy()
+            # url = f"http://localhost:{self._conf.API_LIDAR_port}/pcd"
+            # response = requests.get(url)
+            # if response.status_code == 200:
+            #     response_data = response.json()
+            #     json_pcd = response_data.get("pcd")
+            #     df = pd.read_json(json_pcd, orient='records')
+            #     points = df.to_numpy()
                
-                pcd = o3d.geometry.PointCloud()
-                pcd.points = o3d.utility.Vector3dVector(points)
-                o3d.visualization.draw_geometries([pcd])
-                # print(np.asarray(pcd.points))
-                # # Create a plot using PyVista
-                # cloud = pv.PolyData(pcd.points)
+            #     pcd = o3d.geometry.PointCloud()
+            #     pcd.points = o3d.utility.Vector3dVector(points)
+            #     o3d.visualization.draw_geometries([pcd])
+            #     # print(np.asarray(pcd.points))
+            #     # # Create a plot using PyVista
+            #     # cloud = pv.PolyData(pcd.points)
                 
-                # if cloud.n_points == 0:
-                #     raise Exception("The point cloud resulted in an empty mesh.")
+            #     # if cloud.n_points == 0:
+            #     #     raise Exception("The point cloud resulted in an empty mesh.")
                 
-                # plotter = pv.Plotter()
-                # plotter.add_mesh(cloud, color='white', point_size=2)
-                # plotter.view_isometric()
-                # plotter.show_bounds(grid='front', location='all', color='gray')
+            #     # plotter = pv.Plotter()
+            #     # plotter.add_mesh(cloud, color='white', point_size=2)
+            #     # plotter.view_isometric()
+            #     # plotter.show_bounds(grid='front', location='all', color='gray')
                 
-                # # Display the visualization in Streamlit
-                # stpyvista(plotter, key="3d_plot")
-            else:
-                raise Exception(f"Error in requisition. Status Code: {response.status_code}")
+            #     # # Display the visualization in Streamlit
+            #     # stpyvista(plotter, key="3d_plot")
+            # else:
+            #     raise Exception(f"Error in requisition. Status Code: {response.status_code}")
 
         except Exception as e:
             raise Exception(f"Error displaying the results: {e}")
@@ -92,7 +92,7 @@ class APP:
         try:
             # Start the lidar
             logger.info("Starting the lidar.")
-            url = f"http://localhost:{self._conf.API_LIDAR_port}/start"
+            url = f"http://{self._conf._API_LIDAR_host}:{self._conf.API_LIDAR_port}/start"
             response = requests.post(url)
             if response.status_code == 200:
                 response_data = response.json()
@@ -108,7 +108,7 @@ class APP:
         try:
             # Start the motor
             logger.info("Starting the motor.")
-            url = f"http://localhost:{self._conf.API_MOTOR_port}/start"
+            url = f"http://{self._conf._API_MOTOR_host}:{self._conf.API_MOTOR_port}/start"
             response = requests.post(url)
             if response.status_code == 200:
                 response_data = response.json()

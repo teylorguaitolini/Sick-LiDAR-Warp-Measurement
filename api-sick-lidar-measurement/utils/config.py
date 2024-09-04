@@ -5,45 +5,63 @@ from os.path import join, exists
 class Config:
     def __init__(self) -> None:
         # API
-        self._API_host = ""
         self._API_port = 0
-        self._distance = 0.0
         # LMS4000
-        self._LMS4000_lidar_ip = ""
-        self._LMS4000_lidar_port = 0
-        self._LMS4000_start_angle = 0
-        self._LMS4000_stop_angle = 0
+        self._LMS4000_ip = ""
+        self._LMS4000_port = 0
+        # Parameters
+        self._save_point_cloud = False
+        self._start_angle = 0
+        self._stop_angle = 0
+        self._pulses_per_rev = 0
+        self._mm_per_rev = 0.0
+        self._distance = 0.0
+        self._filter_Y_iterations_num = 0
     
     # --- API --- #
     @property
-    def API_host(self):
-        return self._API_host
-    
-    @property
     def API_port(self):
         return self._API_port
-    
-    @property
-    def distance(self):
-        return self._distance
     # --- --- #
     
     # --- LMS4000 --- #
     @property
-    def LMS4000_lidar_ip(self):
-        return self._LMS4000_lidar_ip
+    def LMS4000_ip(self):
+        return self._LMS4000_ip
     
     @property
-    def LMS4000_lidar_port(self):
-        return self._LMS4000_lidar_port
+    def LMS4000_port(self):
+        return self._LMS4000_port
+    # --- --- #
+
+    # --- PARAMETERS --- #
+    @property
+    def save_point_cloud(self):
+        return self._save_point_cloud
+
+    @property
+    def start_angle(self):
+        return self._start_angle
     
     @property
-    def LMS4000_start_angle(self):
-        return self._LMS4000_start_angle
+    def stop_angle(self):
+        return self._stop_angle
     
     @property
-    def LMS4000_stop_angle(self):
-        return self._LMS4000_stop_angle
+    def pulses_per_rev(self):
+        return self._pulses_per_rev
+    
+    @property
+    def mm_per_rev(self):
+        return self._mm_per_rev
+    
+    @property
+    def distance(self):
+        return self._distance
+    
+    @property
+    def filter_Y_iterations_num(self):
+        return self._filter_Y_iterations_num
     # --- --- #
 
     def read_config_file(self):
@@ -60,15 +78,21 @@ class Config:
             config.read(DIR)
 
             # API
-            self._API_host = str(config["API"]["host"])
-            self._API_port = int(config["API"]["port"])
-            self._distance = float(config["API"]["distance"])
+            self._API_host = config.get("API", "host")
+            self._API_port = config.getint("API", "port")
 
             # LMS4000
-            self._LMS4000_lidar_ip = str(config["LMS4000"]["ip"])
-            self._LMS4000_lidar_port = int(config["LMS4000"]["port"])
-            self._LMS4000_start_angle = int(config["LMS4000"]["start_angle"])
-            self._LMS4000_stop_angle = int(config["LMS4000"]["stop_angle"])
+            self._LMS4000_ip = config.get("LMS4000", "ip")
+            self._LMS4000_port = config.getint("LMS4000", "port")
+
+            # PARAMETERS
+            self._save_point_cloud = True if config.get("PARAMETERS", "save_point_cloud").upper() == "TRUE" else False
+            self._start_angle = config.getint("PARAMETERS", "start_angle")
+            self._stop_angle = config.getint("PARAMETERS", "stop_angle")
+            self._pulses_per_rev = config.getint("PARAMETERS", "pulses_per_rev")
+            self._mm_per_rev = config.getfloat("PARAMETERS", "mm_per_rev")
+            self._distance = config.getfloat("PARAMETERS", "distance")
+            self._filter_Y_iterations_num = config.getint("PARAMETERS", "filter_Y_iterations_num")
 
         except FileNotFoundError as e:
             raise FileNotFoundError(f"Error reading the configuration file: {e}")

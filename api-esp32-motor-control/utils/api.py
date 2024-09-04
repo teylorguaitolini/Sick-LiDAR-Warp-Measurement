@@ -39,7 +39,7 @@ class API:
             
             uvicorn.run(
                 self.app, 
-                host=self.conf.host, 
+                host="0.0.0.0", # localhost
                 port=self.conf.port,
                 log_config=None
             )
