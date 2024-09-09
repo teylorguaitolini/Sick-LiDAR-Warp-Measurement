@@ -4,6 +4,7 @@ import open3d as o3d
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from math import ceil
 from datetime import datetime
 from os import getcwd, makedirs
 from os.path import join, exists
@@ -50,8 +51,9 @@ class PointCloudManager:
             z = points[:, 2]
 
             # Converting encoder number to real distance in meters
-            ratio = (mm_per_rev / pulses_per_rev) # mm per tick (pulse)
-            z = z * (ratio / 1000)
+            mm_per_pulse = (mm_per_rev / pulses_per_rev) # mm per tick (pulse)
+            mm_per_pulse = mm_per_pulse / 1000  # in meters
+            z = z * mm_per_pulse
 
             # Updating the point cloud with the adjusted values
             points[:, 2] = z
@@ -94,9 +96,6 @@ class PointCloudManager:
         :param distance: The distance between LiDAR and the object.
         """
         try:
-            # Aplicar o filtro de outliers
-            self._filter_statistical_outliers()
-
             # carregar pontos após o filtro de outliers
             filtered_points = np.asarray(self.point_cloud.points)
 
@@ -104,40 +103,47 @@ class PointCloudManager:
             if distance > 0:
                 filtered_points = filtered_points[filtered_points[:, 1] <= distance]
             
-            if num_iterations > 0:
-                n = num_iterations
-            else:
-                y_coordinates = np.round(filtered_points[:, 1], 2)
-                std = np.std(y_coordinates)
-                n = int(31 * std)
+            # Atualizar os pontos na nuvem de pontos
+            self.point_cloud.points = o3d.utility.Vector3dVector(filtered_points)
             
-            for _ in range(n):
-                # Aplicar o filtro de outliers
-                self._filter_statistical_outliers()
-
-                # carregar pontos após o filtro de outliers
-                filtered_points = np.asarray(self.point_cloud.points)
-
-                # Calcular a moda das coordenadas Y
-                y_coordinates = np.round(filtered_points[:, 1], 2)
-                unique_vals, inverse = np.unique(y_coordinates, return_inverse=True)
-                mode_index = np.bincount(inverse).argmax()
-                mode_y = unique_vals[mode_index]
-
-                # Calcular os limites de controle
-                std = np.std(y_coordinates)
-                ucl = mode_y + 3 * std
-                lcl = mode_y - 3 * std
-                logger.info(f"Mode of Y coordinates: {mode_y}, UCL: {ucl}, LCL: {lcl}")
-
-                # Aplicar os filtros de controle
-                filtered_points = filtered_points[(y_coordinates <= ucl) & (y_coordinates >= lcl)]
-
-                # Atualizar os pontos na nuvem de pontos
-                self.point_cloud.points = o3d.utility.Vector3dVector(filtered_points)
+            # Aplicar o filtro de sigma
+            if num_iterations > 0:
+                for _ in range(num_iterations):
+                    self._sigma_filter()
+            else:
+                std = self._sigma_filter()
+                while std > 0.01:
+                    std = self._sigma_filter()
             
         except Exception as e:
             raise Exception(f"Error in filtering by distance: {e}")
+    
+    def _sigma_filter(self):
+        # Aplicar o filtro de outliers
+        self._filter_statistical_outliers()
+
+        # carregar pontos após o filtro de outliers
+        filtered_points = np.asarray(self.point_cloud.points)
+
+        # Calcular a moda das coordenadas Y
+        y_coordinates = np.round(filtered_points[:, 1], 2)
+        unique_vals, inverse = np.unique(y_coordinates, return_inverse=True)
+        mode_index = np.bincount(inverse).argmax()
+        mode_y = unique_vals[mode_index]
+
+        # Calcular os limites de controle
+        std = np.std(y_coordinates)
+        ucl = mode_y + 3 * std
+        lcl = mode_y - 3 * std
+        logger.info(f"Mode of Y coordinates: {mode_y}, Std: {std} UCL: {ucl}, LCL: {lcl}")
+
+        # Aplicar os filtros de controle
+        filtered_points = filtered_points[(y_coordinates <= ucl) & (y_coordinates >= lcl)]
+
+        # Atualizar os pontos na nuvem de pontos
+        self.point_cloud.points = o3d.utility.Vector3dVector(filtered_points)
+
+        return std
     
     def virtualTwine(self):
         """

@@ -24,9 +24,13 @@ class Measurement:
             self._conf.read_config_file()
             
             # --- LiDAR sensor object --- #
-            lidar = LMS4000(self._conf.LMS4000_ip, self._conf.LMS4000_port, self._conf.start_angle, self._conf.stop_angle)
-            
-            logger.info("Motor started successfully.")
+            lidar = LMS4000(
+                self._conf.LMS4000_ip, 
+                self._conf.LMS4000_port, 
+                self._conf.start_angle, 
+                self._conf.stop_angle,
+                self._conf.response_time
+            )
 
             # Perform data acquisition routine
             lidar.data_acquisition_routine()

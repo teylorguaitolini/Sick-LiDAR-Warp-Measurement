@@ -1,5 +1,5 @@
 from time import sleep
-from numpy import abs
+from math import ceil
 from datetime import datetime
 from utils.CoLaA_TCP import ColaA_TCP
 from utils.logger_config import logger
@@ -8,12 +8,21 @@ class LMS4000():
     """
     Class that abstracts the LMS4000 LiDAR sensor.
     """
-    def __init__(self, ip:str, port:int, start_angle:int, stop_angle:int) -> None:
+    def __init__(
+            self, 
+            ip:            str, 
+            port:          int, 
+            start_angle:   int, 
+            stop_angle:    int,
+            response_time: float
+        ):
+        # --- Objeto de Comunicação com o LiDAR (Protocolo CoLa A via TCP) --- #
+        self._com = ColaA_TCP(ip, port)
+
         # --- Dados provenientes no arquivo config.ini --- #
-        self._ip = ip
-        self._port = port
         self._start_angle = start_angle
         self._stop_angle = stop_angle
+        self._response_time = response_time
 
         self._pcd = []
     
@@ -25,10 +34,7 @@ class LMS4000():
         """
         Method that creates the pcd list by capturing each scan requested to the sensor.
         """
-        try:
-            # --- Objeto de Comunicação com o LiDAR (Protocolo CoLa A via TCP) --- #
-            self._com = ColaA_TCP(self._ip, self._port)
-            
+        try:            
             self._com.connect()
 
             self._parameterize()
@@ -39,6 +45,7 @@ class LMS4000():
             direction_flag = False
             old_Z_value = 0.0
             same_Z_value_counter = 0
+            counter_num_for_2s = ceil(2*1000/self._response_time)
             self._com.poll_one_telegram() # to clear the buffer
 
             # --- Loop while Beg --- #
@@ -69,7 +76,7 @@ class LMS4000():
                 
                 if (current_Z_value==old_Z_value):      # the lidar is no longer mooving
                     same_Z_value_counter+=1
-                    if same_Z_value_counter == 200:     # stopped for too long, 2.0 s
+                    if same_Z_value_counter == counter_num_for_2s:     # stopped for too long, 2.0 s
                         logger.info("Data aquisition finished because the lidar was not mooving.")
                         break
                 else:                                   # still mooving to the right
@@ -79,11 +86,8 @@ class LMS4000():
 
                 self._pcd.extend(points)
 
-                # Response time of 4.8 ms
-                # from performance technical details in datasheet
-                # sleep(4.8/1000)  
-                # but I will use more time, 10 ms, so:
-                sleep(10/1000)
+                # wainting the response time
+                sleep(self._response_time / 1000)
             # --- Loop while End --- #
 
             self._com.release() # Finish the connection with the sensor after the measurement

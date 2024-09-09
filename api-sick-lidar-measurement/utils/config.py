@@ -10,13 +10,14 @@ class Config:
         self._LMS4000_ip = ""
         self._LMS4000_port = 0
         # Parameters
-        self._save_point_cloud = False
-        self._start_angle = 0
-        self._stop_angle = 0
+        self._response_time = 0.0
         self._pulses_per_rev = 0
         self._mm_per_rev = 0.0
+        self._start_angle = 0
+        self._stop_angle = 0
         self._distance = 0.0
         self._filter_Y_iterations_num = 0
+        self._save_point_cloud = False
     
     # --- API --- #
     @property
@@ -34,18 +35,10 @@ class Config:
         return self._LMS4000_port
     # --- --- #
 
-    # --- PARAMETERS --- #
+    # --- PARAMETERS --- #    
     @property
-    def save_point_cloud(self):
-        return self._save_point_cloud
-
-    @property
-    def start_angle(self):
-        return self._start_angle
-    
-    @property
-    def stop_angle(self):
-        return self._stop_angle
+    def response_time(self):
+        return self._response_time
     
     @property
     def pulses_per_rev(self):
@@ -56,12 +49,24 @@ class Config:
         return self._mm_per_rev
     
     @property
+    def start_angle(self):
+        return self._start_angle
+    
+    @property
+    def stop_angle(self):
+        return self._stop_angle
+    
+    @property
     def distance(self):
         return self._distance
     
     @property
     def filter_Y_iterations_num(self):
         return self._filter_Y_iterations_num
+    
+    @property
+    def save_point_cloud(self):
+        return self._save_point_cloud
     # --- --- #
 
     def read_config_file(self):
@@ -78,7 +83,6 @@ class Config:
             config.read(DIR)
 
             # API
-            self._API_host = config.get("API", "host")
             self._API_port = config.getint("API", "port")
 
             # LMS4000
@@ -86,13 +90,14 @@ class Config:
             self._LMS4000_port = config.getint("LMS4000", "port")
 
             # PARAMETERS
-            self._save_point_cloud = True if config.get("PARAMETERS", "save_point_cloud").upper() == "TRUE" else False
-            self._start_angle = config.getint("PARAMETERS", "start_angle")
-            self._stop_angle = config.getint("PARAMETERS", "stop_angle")
+            self._response_time = config.getfloat("PARAMETERS", "response_time")
             self._pulses_per_rev = config.getint("PARAMETERS", "pulses_per_rev")
             self._mm_per_rev = config.getfloat("PARAMETERS", "mm_per_rev")
+            self._start_angle = config.getint("PARAMETERS", "start_angle")
+            self._stop_angle = config.getint("PARAMETERS", "stop_angle")
             self._distance = config.getfloat("PARAMETERS", "distance")
             self._filter_Y_iterations_num = config.getint("PARAMETERS", "filter_Y_iterations_num")
+            self._save_point_cloud = True if config.get("PARAMETERS", "save_point_cloud").upper() == "TRUE" else False
 
         except FileNotFoundError as e:
             raise FileNotFoundError(f"Error reading the configuration file: {e}")
