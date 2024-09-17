@@ -14,6 +14,13 @@ class PointCloudManager:
     def __init__(self):
         self.point_cloud = o3d.geometry.PointCloud()
 
+        # Measurment results with Virtual Twine Algorithm
+        self._vt_warping = 0.0
+        self._vt_warping_image = None
+        self._vt_lenght = 0.0
+        self._vt_hight = 0.0
+        self._vt_distance = 0.0
+
     def load_from_list(self, pcd:list):
         try:
             self._clear()
@@ -57,6 +64,11 @@ class PointCloudManager:
 
             # Updating the point cloud with the adjusted values
             points[:, 2] = z
+
+            # Removing points with Z values greater than 20 meters
+            # this is due the encoder overflow
+            # points = points[points[:, 2] >= -20000]
+
             self.point_cloud.points = o3d.utility.Vector3dVector(points)
         except Exception as e:
             raise Exception(f"Error in encoder to real distance conversion: {e}")
@@ -69,25 +81,26 @@ class PointCloudManager:
             points = np.asarray(self.point_cloud.points)
 
             x = points[:, 0]
-            z = points[:, 2]
+            # z = points[:, 2]
 
             # Shifting x to be fully positive, with a reference at 0
             minv = np.min(x)
             if minv < 0:
                 x = x + np.abs(minv)
+            elif minv > 0:
+                x = x - minv
 
             # Shifting z to be fully positive, with a reference at 0, if moving to the left
-            minv = np.min(z)
-            if minv < 0:
-                z = z + np.abs(minv)
+            # minv = np.min(z)
+            # if minv < 0:
+            #     z = z + np.abs(minv)
 
             # Updating the point cloud with the adjusted values
             points[:, 0] = x
-            points[:, 2] = z
+            # points[:, 2] = z
             self.point_cloud.points = o3d.utility.Vector3dVector(points)
         except Exception as e:
             raise Exception(f"Error in data adequacy check: {e}")
-
 
     def filter_by_Y_distance(self, distance: float, num_iterations: int):
         """
@@ -111,14 +124,39 @@ class PointCloudManager:
                 for _ in range(num_iterations):
                     self._sigma_filter()
             else:
+                i = 0
                 std = self._sigma_filter()
-                while std > 0.01:
+                while (std > 0.01) and (i <= 30):
                     std = self._sigma_filter()
+                    i += 1
+                logger.info(f"Final Std: {std}")
             
         except Exception as e:
             raise Exception(f"Error in filtering by distance: {e}")
     
-    def _sigma_filter(self):
+    def virtualTwine(self):
+        """
+        ### virtualTwine
+        - Warping Measurement for Lateral Stack Scan.
+        - Virtual Twine Method.
+        """
+        try:
+            points = np.asarray(self.point_cloud.points)
+
+            x = points[:, 0]
+            y = points[:, 1]
+            z = points[:, 2]
+
+            # here comes the algorithm to calculate the deviation
+            self._virtualTwineAlgorithm(z, x)
+
+            self._vt_lenght = np.max(z) - np.min(z)
+            self._vt_hight = np.max(x) - np.min(x)
+            self._vt_distance = np.mean(y)
+        except Exception as e:
+            raise Exception(f"Error in WMLSS: {e}")
+
+    def _sigma_filter(self, sigmas: int = 2):
         # Aplicar o filtro de outliers
         self._filter_statistical_outliers()
 
@@ -133,68 +171,70 @@ class PointCloudManager:
 
         # Calcular os limites de controle
         std = np.std(y_coordinates)
-        ucl = mode_y + 3 * std
-        lcl = mode_y - 3 * std
+        ucl = mode_y + sigmas * std
+        lcl = mode_y - sigmas * std
         logger.info(f"Mode of Y coordinates: {mode_y}, Std: {std} UCL: {ucl}, LCL: {lcl}")
 
         # Aplicar os filtros de controle
         filtered_points = filtered_points[(y_coordinates <= ucl) & (y_coordinates >= lcl)]
+
+        # Calcular o desvio padrão atualizado
+        y_coordinates = np.round(filtered_points[:, 1], 2)
+        std = np.std(y_coordinates)
 
         # Atualizar os pontos na nuvem de pontos
         self.point_cloud.points = o3d.utility.Vector3dVector(filtered_points)
 
         return std
     
-    def virtualTwine(self):
-        """
-        ### virtualTwine
-        - Warping Measurement for Lateral Stack Scan.
-        - Virtual Twine Method.
-        """
-        try:
-            points = np.asarray(self.point_cloud.points)
-
-            x = points[:, 0]
-            z = points[:, 2]
-
-            # here comes the algorithm to calculate the deviation
-            deviation = self._virtualTwineAlgorithm(z, x)
-
-            # Gerar a imagem
-            plt.figure(figsize=(10, 6))
-            plt.scatter(z, x, c='blue', label='Points')
-            plt.axhline(y=deviation, color='red', linestyle='--', label='Deviation')
-
-            # Definir limites dos eixos
-            plt.autoscale(tight=True)
-            n_ticks = 10
-            plt.xticks(np.linspace(min(z), max(z), n_ticks))
-            plt.yticks(np.linspace(min(x), max(x), n_ticks))
-
-            plt.title('Warping Measurement by Virtual Twine Method')
-            plt.xlabel('Z axis')
-            plt.ylabel('X axis')
-            plt.legend()
-            plt.grid(True)
-            
-            # Save the image to a byte buffer
-            buffer = io.BytesIO()
-            plt.savefig(buffer, format='png')
-            buffer.seek(0)  # Go back to the beginning of the buffer
-            plt.close()  # Close the figure to free memory
-            img_str = base64.b64encode(buffer.getvalue()).decode('utf-8')
-
-            return deviation, img_str
-        except Exception as e:
-            raise Exception(f"Error in WMLSS: {e}")
-    
-    def _virtualTwineAlgorithm(self, z: np.ndarray, x: np.ndarray):
+    def _virtualTwineAlgorithm(self, x: np.ndarray, y: np.ndarray):
         """
         ### virtualTwineAlgorithm
-        algorithm to calculate the warping
+        Algorithm to calculate the warping by identifying the upper edge of a profile.
+        
+        :param x: np.ndarray, x-coordinates of the profile points
+        :param y: np.ndarray, y-coordinates of the profile points
+        
+        :return: warping (float), a measure of the warping along the upper edge
         """
-        deviation = 0.0
-        return deviation
+
+        # Inicializa a borda superior com -inf para cada valor único de x
+        unique_x = np.unique(x)
+        upper_edge_y = np.full_like(unique_x, -np.inf, dtype=float)
+
+        # Para cada x, encontre o maior y correspondente
+        for i, x_val in enumerate(unique_x):
+            indices = np.where(x == x_val)[0]
+            upper_edge_y[i] = np.max(y[indices])
+        
+        plt.figure(figsize=(16, 9))  # "Tela cheia"
+        plt.scatter(x, y, s=2, label="Perfil original", c="lightblue")
+        # plt.autoscale(tight=True)
+        n_ticks = 10
+        plt.xticks(np.linspace(min(x), max(x), n_ticks))
+        plt.yticks(np.linspace(min(y), max(y), n_ticks))
+        plt.plot(unique_x, upper_edge_y, 'r-', label="Borda superior")
+        
+        # Calcular o "warping" como a diferença entre o maior e o menor valor de y na borda superior
+        max_y = np.max(upper_edge_y)
+        min_y = np.min(upper_edge_y)
+        self._vt_warping = max_y - min_y
+
+        plt.axhline(y=max_y, color='orange', linestyle='-', label='Máx. y (Borda superior)')
+        plt.axhline(y=min_y, color='darkgreen', linestyle='-', label='Mín. y (Borda superior)')
+
+        plt.title('Medição do Empeno: Barbante Virtual')
+        plt.ylabel('Altura [m]')
+        plt.xlabel('Comprimento [m]')
+        plt.legend()
+        plt.grid(True)
+
+        # Salvar a imagem como base64
+        buffer = io.BytesIO()
+        plt.savefig(buffer, format='png', bbox_inches='tight')
+        buffer.seek(0)
+        plt.close()
+        self._vt_warping_image = base64.b64encode(buffer.getvalue()).decode('utf-8')
     
     def _filter_statistical_outliers(self, nb_neighbors=20, std_ratio=2.0):
         try:

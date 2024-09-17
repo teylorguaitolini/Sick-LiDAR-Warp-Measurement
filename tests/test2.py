@@ -24,28 +24,37 @@ def virtualTwineAlgorithm(x: np.ndarray, y: np.ndarray):
         upper_edge_y[i] = np.max(y[indices])
     
     # Opcional: Visualize a borda superior (comente ou remova para a produção)
-    plt.scatter(x, y, s=2, label="Perfil original")
-    plt.autoscale(tight=True)
+    plt.scatter(x, y, s=2, label="Perfil original", c="lightblue")
+    # plt.autoscale(tight=True)
     n_ticks = 10
     plt.xticks(np.linspace(min(x), max(x), n_ticks))
     plt.yticks(np.linspace(min(y), max(y), n_ticks))
     plt.plot(unique_x, upper_edge_y, 'r-', label="Borda superior")
-    plt.title('Warping Measurement by Virtual Twine Method')
-    plt.legend()
-    plt.grid(True)
     
     # Calcular o "warping" como a diferença entre o maior e o menor valor de y na borda superior
-    print(f"Upper edge: {np.max(upper_edge_y)}")
-    print(f"Lower edge: {np.min(upper_edge_y)}")
-    warping = np.max(upper_edge_y) - np.min(upper_edge_y)
+    max_y = np.max(upper_edge_y)
+    min_y = np.min(upper_edge_y)
+    
+    print(f"Upper edge: {max_y}")
+    print(f"Lower edge: {min_y}")
+    warping = max_y - min_y
     print(f"Warping: {warping}")
+
+    plt.axhline(y=max_y, color='orange', linestyle='-', label='Máx. y (Borda superior)')
+    plt.axhline(y=min_y, color='darkgreen', linestyle='-', label='Mín. y (Borda superior)')
+
+    plt.title('Medição do Empeno: Barbante Virtual')
+    plt.ylabel('Altura [m]')
+    plt.xlabel('Comprimento [m]')
+    plt.legend()
+    plt.grid(True)
 
     plt.show()
 
     return warping
 
-
-pcd_path = "D:\\Sick-LiDAR-Warp-Measurement\\api-sick-lidar-measurement\\PCDs\\20240909_193359.csv"
+# Leitura dos dados e execução do algoritmo
+pcd_path = "D:\\Sick-LiDAR-Warp-Measurement\\api-sick-lidar-measurement\\PCDs\\20240916_201636.csv"
 pcd_df = pd.read_csv(pcd_path)
 points = pcd_df.to_numpy()
 

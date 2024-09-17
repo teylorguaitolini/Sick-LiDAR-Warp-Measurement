@@ -1,4 +1,5 @@
 import uvicorn
+from time import sleep
 from fastapi import FastAPI
 from utils import logger, Config, Measurement
 
@@ -24,15 +25,18 @@ class API:
                 logger.error("Warping Measurement Error.")
                 return {"message": "error"}
         
-        @self.app.get("/warping")
-        def get_warping():
-            logger.info("Warping result request received.")
-            return {"warping": f"{self.measure.warping}"}
-        
-        @self.app.get("/warping_image")
-        def get_warping_image():
-            logger.info("Warping image request received.")
-            return {"warping_image": self.measure.warping_image}
+        @self.app.get("/results")
+        def get_results():
+            logger.info("Results request received.")
+            
+            return {
+                "warping": self.measure.warping,
+                "length": self.measure.lenght,
+                "height": self.measure.hight,
+                "distance": self.measure.distance,
+                "warping_image": f"{self.measure.warping_image}"
+            }
+
 
     def start(self):
         try:

@@ -5,7 +5,7 @@ import time
 import numpy as np
 from utils.logger_config import logger
 
-class ColaA_TCP():
+class CoLaA_TCP():
     """
     Class that implements the comunication by Sick CoLa A protocol via TCP with the LMS4000 sensor.
     """
@@ -87,8 +87,6 @@ class ColaA_TCP():
 
             # getting encoder values
             encoder_current_num_of_ticks = int(encoder[1], 16)
-            # multipling by -1 to invert the encoder values
-            encoder_current_num_of_ticks = encoder_current_num_of_ticks * -1
             z = [encoder_current_num_of_ticks] * len(x)
 
             # transforma do formato ([x1, x2, x3, ...], [y1, y2, y3, ...], [z1, z2, z3, ...])
@@ -264,11 +262,27 @@ class ColaA_TCP():
         if not (telegram[1] == "LMPoutputRange"):
             raise Exception("Error trying to configure angular range in the scan data output.")
 
-    def set_encoder_settings(self):
+    def set_encoder_settings(self, setting = '2'):
         """
-        Sessão "4.6.2 Set encoder settings" do manual do Protocolo CoLa A
+        Section "4.6.2 Set encoder settings" of the CoLa A Protocol manual
+
+        :param setting: Encoder data configuration for output.
+            -- `0`: Off (No encoder data)
+            -- `1`: Single increment/INC1
+            -- `2`: Direction recognition (phase)
+            -- `3`: Direction recognition (level)
+            -- `4`: Fixed increment speed/ticks (1 kHz)
         """
-        pass
+        try:
+            data = self.send_socket(
+                message = f"sWN LICencset {setting}",
+                buffer = 128
+            )
+            telegram = data.split()
+            if not (telegram[1] == "LICencset"):
+                raise Exception("Error trying to set encoder settings.")
+        except Exception as e:
+            raise e
 
     def reset_encoder_values(self):
         """
