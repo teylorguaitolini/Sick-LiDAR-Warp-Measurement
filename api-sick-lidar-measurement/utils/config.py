@@ -17,6 +17,7 @@ class Config:
         self._stop_angle = 0
         self._distance = 0.0
         self._filter_Y_iterations_num = 0
+        self._reverse_direction = False
         self._save_point_cloud = False
     
     # --- API --- #
@@ -65,6 +66,10 @@ class Config:
         return self._filter_Y_iterations_num
     
     @property
+    def reverse_direction(self):
+        return self._reverse_direction
+    
+    @property
     def save_point_cloud(self):
         return self._save_point_cloud
     # --- --- #
@@ -97,6 +102,7 @@ class Config:
             self._stop_angle = config.getint("PARAMETERS", "stop_angle")
             self._distance = config.getfloat("PARAMETERS", "distance")
             self._filter_Y_iterations_num = config.getint("PARAMETERS", "filter_Y_iterations_num")
+            self._reverse_direction = True if config.get("PARAMETERS", "reverse_direction").upper() == "TRUE" else False
             self._save_point_cloud = True if config.get("PARAMETERS", "save_point_cloud").upper() == "TRUE" else False
 
         except FileNotFoundError as e:

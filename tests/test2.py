@@ -54,7 +54,7 @@ def virtualTwineAlgorithm(x: np.ndarray, y: np.ndarray):
     return warping
 
 # Leitura dos dados e execução do algoritmo
-pcd_path = "D:\\Sick-LiDAR-Warp-Measurement\\api-sick-lidar-measurement\\PCDs\\20240916_201636.csv"
+pcd_path = "D:\\Sick-LiDAR-Warp-Measurement\\api-sick-lidar-measurement\\PCDs\\20240919_162657.csv"
 pcd_df = pd.read_csv(pcd_path)
 points = pcd_df.to_numpy()
 

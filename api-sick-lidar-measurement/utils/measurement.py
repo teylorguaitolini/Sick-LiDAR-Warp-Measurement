@@ -13,52 +13,57 @@ class Measurement:
         self._pcm = PointCloudManager()
         # --- --- #
 
+        # --- LiDAR sensor object --- #
+        self._lidar = LMS4000(
+            self._conf.LMS4000_ip, 
+            self._conf.LMS4000_port, 
+            self._conf.start_angle, 
+            self._conf.stop_angle,
+            self._conf.response_time,
+            self._conf.reverse_direction
+        )
+        # --- --- #
+
     @property
     def warping(self):
-        return self._pcm._vt_warping
+        return self._pcm.vt_warping
     
     @property
     def warping_image(self):
-        return self._pcm._vt_warping_image
+        return self._pcm.vt_warping_image
     
     @property
     def lenght(self):
-        return self._pcm._vt_lenght
+        return self._pcm.vt_lenght
     
     @property
     def hight(self):
-        return self._pcm._vt_hight
+        return self._pcm.vt_hight
     
     @property
     def distance(self):
-        return self._pcm._vt_distance
+        return self._pcm.vt_distance
     
     def measurement_routine(self):
         try:
             logger.info("Starting measurement.")
-
-            self._conf.read_config_file()
             
-            # --- LiDAR sensor object --- #
-            lidar = LMS4000(
-                self._conf.LMS4000_ip, 
-                self._conf.LMS4000_port, 
-                self._conf.start_angle, 
-                self._conf.stop_angle,
-                self._conf.response_time
-            )
-
             # Perform data acquisition routine
-            lidar.data_acquisition_routine()
+            self._lidar.data_acquisition_routine()
 
             # Load point cloud into pcm
-            self._pcm.load_from_list(lidar.pcd)
+            self._pcm.load_from_list(self._lidar.pcd)
 
             # values must be read from the config file
-            self._pcm.encoder_to_real_Z_distance(self._conf.pulses_per_rev, self._conf.mm_per_rev)
+            self._pcm.encoder_to_real_Z_distance(
+                self._conf.pulses_per_rev, 
+                self._conf.mm_per_rev
+            )
             
             # Apply filters to the point cloud
-            self._pcm.filter_by_Y_distance(self._conf.distance, self._conf.filter_Y_iterations_num)
+            self._pcm.filter_pcd(
+                distance=self._conf.distance
+            )
             
             # data adequacy to plot the point cloud
             self._pcm.data_adequacy()

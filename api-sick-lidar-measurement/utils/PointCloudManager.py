@@ -4,7 +4,6 @@ import open3d as o3d
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from math import ceil
 from datetime import datetime
 from os import getcwd, makedirs
 from os.path import join, exists
@@ -14,14 +13,37 @@ class PointCloudManager:
     def __init__(self):
         self.point_cloud = o3d.geometry.PointCloud()
 
-        # Measurment results with Virtual Twine Algorithm
+        # --- Measurment results with Virtual Twine Algorithm --- #
         self._vt_warping = 0.0
-        self._vt_warping_image = None
+        self._vt_warping_image = ""
         self._vt_lenght = 0.0
         self._vt_hight = 0.0
         self._vt_distance = 0.0
+        # ---  --- #
+    
+    @property
+    def vt_warping(self):
+        return self._vt_warping
+    
+    @property
+    def vt_warping_image(self):
+        return self._vt_warping_image
+    
+    @property
+    def vt_lenght(self):
+        return self._vt_lenght
+    
+    @property
+    def vt_hight(self):
+        return self._vt_hight
+    
+    @property
+    def vt_distance(self):
+        return self._vt_distance
 
-    def load_from_list(self, pcd:list):
+    def load_from_list(self, 
+        pcd:list
+    ):
         try:
             self._clear()
             self.point_cloud.points = o3d.utility.Vector3dVector(np.array(pcd))
@@ -29,7 +51,9 @@ class PointCloudManager:
         except Exception as e:
             raise Exception(f"Error in loading point cloud from list: {e}")
     
-    def pcd2csv(self, save: bool):
+    def pcd2csv(self, 
+        save: bool
+    ):
         try:
             if save:
                 points = np.asarray(self.point_cloud.points)
@@ -45,7 +69,10 @@ class PointCloudManager:
         except Exception as e:
             raise Exception(f"Error in generating JSON PCD: {e}")
         
-    def encoder_to_real_Z_distance(self, pulses_per_rev: int, mm_per_rev: float):
+    def encoder_to_real_Z_distance(self, 
+        pulses_per_rev: int, 
+        mm_per_rev:     float
+    ):
         """
         Converts encoder numbers to real distance in meters.
 
@@ -65,10 +92,6 @@ class PointCloudManager:
             # Updating the point cloud with the adjusted values
             points[:, 2] = z
 
-            # Removing points with Z values greater than 20 meters
-            # this is due the encoder overflow
-            # points = points[points[:, 2] >= -20000]
-
             self.point_cloud.points = o3d.utility.Vector3dVector(points)
         except Exception as e:
             raise Exception(f"Error in encoder to real distance conversion: {e}")
@@ -81,56 +104,59 @@ class PointCloudManager:
             points = np.asarray(self.point_cloud.points)
 
             x = points[:, 0]
-            # z = points[:, 2]
+            z = points[:, 2]
 
             # Shifting x to be fully positive, with a reference at 0
-            minv = np.min(x)
-            if minv < 0:
-                x = x + np.abs(minv)
-            elif minv > 0:
-                x = x - minv
+            min_x = np.min(x)
+            if min_x < 0:
+                x = x + np.abs(min_x)
+            elif min_x > 0:
+                x = x - min_x
 
-            # Shifting z to be fully positive, with a reference at 0, if moving to the left
-            # minv = np.min(z)
-            # if minv < 0:
-            #     z = z + np.abs(minv)
+            # Mirroring the z values since the LiDAR is inverted
+            z = z * -1
+            min_z = np.min(z)
+            z = z + np.abs(min_z)
 
             # Updating the point cloud with the adjusted values
             points[:, 0] = x
-            # points[:, 2] = z
+            points[:, 2] = z
             self.point_cloud.points = o3d.utility.Vector3dVector(points)
         except Exception as e:
             raise Exception(f"Error in data adequacy check: {e}")
 
-    def filter_by_Y_distance(self, distance: float, num_iterations: int):
+    def filter_pcd(self,
+        distance:   float = 0.0,
+        target_std: float = 0.005, 
+        max_num_i:  int   = 21
+    ):
         """
         ### filter_by_distance
 
         :param distance: The distance between LiDAR and the object.
         """
         try:
-            # carregar pontos após o filtro de outliers
-            filtered_points = np.asarray(self.point_cloud.points)
+            # --- Aplicar o pre filtro de distância (eixo Y) --- #
+            self._distance_pre_filter(distance)
+            # --- --- #
+            
+            # --- Aplicar o filtro de sigma para distancia (eixo Y) --- #
+            sigmas = 3
+            i_ref = int(max_num_i/sigmas)
+            i = 1
+            std = self._distance_sigma_filter(sigmas)
+            while (std > target_std) and (i < max_num_i):
+                if (i_ref < i <= (2*i_ref)):
+                    sigmas = 2
+                elif (i > (2*i_ref)):
+                    sigmas = 1
+                std = self._distance_sigma_filter(sigmas)
+                i += 1
+            logger.info(f"Final Std: {std}")
+            # --- --- # 
 
-            # Filtrar os pontos com base na distância especificada
-            if distance > 0:
-                filtered_points = filtered_points[filtered_points[:, 1] <= distance]
-            
-            # Atualizar os pontos na nuvem de pontos
-            self.point_cloud.points = o3d.utility.Vector3dVector(filtered_points)
-            
-            # Aplicar o filtro de sigma
-            if num_iterations > 0:
-                for _ in range(num_iterations):
-                    self._sigma_filter()
-            else:
-                i = 0
-                std = self._sigma_filter()
-                while (std > 0.01) and (i <= 30):
-                    std = self._sigma_filter()
-                    i += 1
-                logger.info(f"Final Std: {std}")
-            
+            # --- Filtro de altura (eixo X) --- #
+            #--- --- #
         except Exception as e:
             raise Exception(f"Error in filtering by distance: {e}")
     
@@ -147,16 +173,26 @@ class PointCloudManager:
             y = points[:, 1]
             z = points[:, 2]
 
-            # here comes the algorithm to calculate the deviation
-            self._virtualTwineAlgorithm(z, x)
-
-            self._vt_lenght = np.max(z) - np.min(z)
-            self._vt_hight = np.max(x) - np.min(x)
-            self._vt_distance = np.mean(y)
+            self._virtualTwineAlgorithm(z, x, y)
         except Exception as e:
             raise Exception(f"Error in WMLSS: {e}")
+    
+    def _distance_pre_filter(self, 
+        distance: float = 0.0
+    ):
+        # carregar pontos após o filtro de outliers
+        filtered_points = np.asarray(self.point_cloud.points)
 
-    def _sigma_filter(self, sigmas: int = 2):
+        # Filtrar os pontos com base na distância especificada
+        if distance > 0:
+            filtered_points = filtered_points[filtered_points[:, 1] <= distance]
+        
+        # Atualizar os pontos na nuvem de pontos
+        self.point_cloud.points = o3d.utility.Vector3dVector(filtered_points)
+    
+    def _distance_sigma_filter(self, 
+        sigmas: int = 3
+    ):
         # Aplicar o filtro de outliers
         self._filter_statistical_outliers()
 
@@ -187,38 +223,96 @@ class PointCloudManager:
 
         return std
     
-    def _virtualTwineAlgorithm(self, x: np.ndarray, y: np.ndarray):
+    def _virtualTwineAlgorithm(self, 
+        x: np.ndarray, 
+        y: np.ndarray, 
+        z: np.ndarray
+    ):
         """
         ### virtualTwineAlgorithm
         Algorithm to calculate the warping by identifying the upper edge of a profile.
         
         :param x: np.ndarray, x-coordinates of the profile points
         :param y: np.ndarray, y-coordinates of the profile points
+        :param z: np.ndarray, z-coordinates of the profile points
         
         :return: warping (float), a measure of the warping along the upper edge
         """
+        upper_edge = self._upper_edge_finder(x, y)
+        
+        # Calcular o "warping" como a diferença entre o maior e o menor valor de y na borda superior
+        max_y = np.max(upper_edge[1])
+        min_y = np.min(upper_edge[1])
 
-        # Inicializa a borda superior com -inf para cada valor único de x
+        self._vt_warping = max_y - min_y
+        self._vt_lenght = np.max(x) - np.min(x)
+        self._vt_hight = np.max(y) - np.min(y)
+        self._vt_distance = np.mean(z)
+        self._vt_warping_image = self._virtualTwinePloter(x, y, upper_edge[0], upper_edge[1], max_y, min_y)
+    
+    def _upper_edge_finder(self, 
+        x: np.ndarray, 
+        y: np.ndarray,
+        diff_threshold_factor: float = 0.5
+    ):
+        """
+        ### upper_edge_finder
+        Algorithm to find the upper edge of a profile and remove outliers based on relative differences.
+        
+        :param x: np.ndarray, x-coordinates of the profile points
+        :param y: np.ndarray, y-coordinates of the profile points
+        :param diff_threshold_factor: float, multiplier for the median difference used to define the threshold
+        
+        :return: upper_edge_x (np.ndarray), unique x-coordinates of the profile points
+        :return: upper_edge_y (np.ndarray), y-coordinates of the upper edge of the profile points
+        """
         unique_x = np.unique(x)
         upper_edge_y = np.full_like(unique_x, -np.inf, dtype=float)
 
-        # Para cada x, encontre o maior y correspondente
+        # Identify the upper edge
         for i, x_val in enumerate(unique_x):
             indices = np.where(x == x_val)[0]
             upper_edge_y[i] = np.max(y[indices])
-        
+
+        # Calculate the differences between consecutive y values
+        diff_y = np.diff(upper_edge_y)
+
+        # Define the threshold based on the median of differences
+        threshold = np.median(np.abs(diff_y)) * diff_threshold_factor
+
+        # Mask to keep values where the difference is less than or equal to the threshold
+        mask = np.ones_like(upper_edge_y, dtype=bool)  # Start with all True
+        mask[1:] = np.abs(diff_y) <= threshold  # Ignore the first point (no previous to compare)
+
+        # Analyze the first point to see if it's an outlier compared to the second
+        if np.abs(upper_edge_y[0] - upper_edge_y[1]) > threshold:
+            mask[0] = False  # Remove the first point if it's too different from the second
+
+        # Analyze the last point to see if it's an outlier compared to the previous one
+        if np.abs(upper_edge_y[-1] - upper_edge_y[-2]) > threshold:
+            mask[-1] = False  # Remove the last point if it's too different from the second-to-last
+
+        # Filter out the outlier points
+        filtered_x = unique_x[mask]
+        filtered_y = upper_edge_y[mask]
+
+        return filtered_x, filtered_y
+    
+    def _virtualTwinePloter(self,
+        x:            np.ndarray,
+        y:            np.ndarray,
+        upper_edge_x: np.ndarray,
+        upper_edge_y: np.ndarray,
+        max_y:        float,
+        min_y:        float
+    ):
         plt.figure(figsize=(16, 9))  # "Tela cheia"
         plt.scatter(x, y, s=2, label="Perfil original", c="lightblue")
         # plt.autoscale(tight=True)
         n_ticks = 10
         plt.xticks(np.linspace(min(x), max(x), n_ticks))
         plt.yticks(np.linspace(min(y), max(y), n_ticks))
-        plt.plot(unique_x, upper_edge_y, 'r-', label="Borda superior")
-        
-        # Calcular o "warping" como a diferença entre o maior e o menor valor de y na borda superior
-        max_y = np.max(upper_edge_y)
-        min_y = np.min(upper_edge_y)
-        self._vt_warping = max_y - min_y
+        plt.plot(upper_edge_x, upper_edge_y, 'r-', label="Borda superior")
 
         plt.axhline(y=max_y, color='orange', linestyle='-', label='Máx. y (Borda superior)')
         plt.axhline(y=min_y, color='darkgreen', linestyle='-', label='Mín. y (Borda superior)')
@@ -234,9 +328,15 @@ class PointCloudManager:
         plt.savefig(buffer, format='png', bbox_inches='tight')
         buffer.seek(0)
         plt.close()
-        self._vt_warping_image = base64.b64encode(buffer.getvalue()).decode('utf-8')
-    
-    def _filter_statistical_outliers(self, nb_neighbors=20, std_ratio=2.0):
+
+        b64_image = base64.b64encode(buffer.getvalue()).decode('utf-8')
+
+        return b64_image
+
+    def _filter_statistical_outliers(self, 
+        nb_neighbors:   int = 20, 
+        std_ratio:      float = 2.0
+    ):
         try:
             cl, ind = self.point_cloud.remove_statistical_outlier(nb_neighbors=nb_neighbors, std_ratio=std_ratio)
             self.point_cloud = self.point_cloud.select_by_index(ind)

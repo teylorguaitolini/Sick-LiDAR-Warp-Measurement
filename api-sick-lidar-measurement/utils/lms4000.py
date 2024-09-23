@@ -8,13 +8,14 @@ class LMS4000():
     Class that abstracts the LMS4000 LiDAR sensor.
     """
     def __init__(
-            self, 
-            ip:            str, 
-            port:          int, 
-            start_angle:   int, 
-            stop_angle:    int,
-            response_time: float
-        ):
+        self, 
+        ip:                str, 
+        port:              int, 
+        start_angle:       int, 
+        stop_angle:        int,
+        response_time:     float,
+        reverse_direction: bool
+    ):
         # --- Objeto de Comunicação com o LiDAR (Protocolo CoLa A via TCP) --- #
         self._cola = CoLaA_TCP(ip, port)
         # ---  --- #
@@ -23,6 +24,7 @@ class LMS4000():
         self._start_angle = start_angle
         self._stop_angle = stop_angle
         self._response_time = response_time
+        self._reverse_direction = reverse_direction
         # ---  --- #
 
         # --- Dados Processados --- #
@@ -50,13 +52,16 @@ class LMS4000():
             # if it is connected and the parameterization is done, start the data acquisition
 
             # --- Resetting the variables --- #
+            self._pcd = []
             self._direction = "S"
+            self._previous_direction = "S"
             self._encoder_value_previous = 0.0
+            self._encoder_value_current = 0.0
             self._start_time = datetime.now()
             # ---  --- #
 
             self._cola.poll_one_telegram() # to clear the buffer
-
+            print(self._reverse_direction)
             # --- Loop while Beg --- #
             while True:
                 # Receiving the scan data
@@ -64,7 +69,8 @@ class LMS4000():
                 
                 # --- Logic to stop the data acquisition --- #
                 self._update_direction(points)
-                if self._stop_acquisition_conditions(reversible=True):
+                print(self._direction)
+                if self._stop_acquisition_conditions(reversible=self._reverse_direction):
                     break
                 # ---  --- #
 
@@ -126,6 +132,10 @@ class LMS4000():
         if self._direction == "S":
             if (datetime.now()-self._start_time).seconds >= 2:  # stopped for too long, 2.0 s
                 logger.info("Data aquisition finished because the lidar was not mooving.")
+                return True
+            
+            if (not reversible) and (self._previous_direction != "S"):
+                logger.info("Data aquisition finished because the lidar changed the direction.")
                 return True
         else:
             self._start_time = datetime.now()
