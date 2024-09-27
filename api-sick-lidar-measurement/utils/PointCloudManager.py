@@ -96,7 +96,9 @@ class PointCloudManager:
         except Exception as e:
             raise Exception(f"Error in encoder to real distance conversion: {e}")
     
-    def data_adequacy(self):
+    def data_adequacy(self, 
+        mirror: bool = False
+    ):
         """
 
         """
@@ -114,9 +116,10 @@ class PointCloudManager:
                 x = x - min_x
 
             # Mirroring the z values since the LiDAR is inverted
-            z = z * -1
-            min_z = np.min(z)
-            z = z + np.abs(min_z)
+            if mirror:
+                z = z * -1
+                min_z = np.min(z)
+                z = z + np.abs(min_z)
 
             # Updating the point cloud with the adjusted values
             points[:, 0] = x
@@ -127,7 +130,7 @@ class PointCloudManager:
 
     def filter_pcd(self,
         distance:   float = 0.0,
-        target_std: float = 0.005, 
+        target_std: float = 0.005, # Definindo o desvio padrão alvo como 0.005 metros (5 mm)
         max_num_i:  int   = 21
     ):
         """
@@ -152,10 +155,12 @@ class PointCloudManager:
                     sigmas = 1
                 std = self._distance_sigma_filter(sigmas)
                 i += 1
+            #std = self._distance_sigma_filter(sigmas)
             logger.info(f"Final Std: {std}")
             # --- --- # 
 
-            # --- Filtro de altura (eixo X) --- #
+            # --- Filtro de Comprimento (eixo Z) --- #
+            self._length_filter()
             #--- --- #
         except Exception as e:
             raise Exception(f"Error in filtering by distance: {e}")
@@ -173,9 +178,44 @@ class PointCloudManager:
             y = points[:, 1]
             z = points[:, 2]
 
+            # Para o algoritmo do Barbante Virtual é feita a análise do perfil superior
+            # Aqui os valores de X, Y e Z são trocados de lugar para facilitar a análise
+            # Z -> X : Comprimento
+            # X -> Y : Altura
+            # Y -> Z : Distância / Profundidade
             self._virtualTwineAlgorithm(z, x, y)
         except Exception as e:
             raise Exception(f"Error in WMLSS: {e}")
+    
+    def _length_filter(self, 
+        threshold: float = 0.01 # Definindo o threshold como 0.01 metros (1 cm)
+    ):
+        points = np.asarray(self.point_cloud.points)
+        z = points[:, 2]
+
+        # Ordenar os pontos com base no eixo Z
+        sorted_indices = np.argsort(z)
+        sorted_points = points[sorted_indices]
+        sorted_z = z[sorted_indices]
+
+        # Detectar buracos (quebra na continuidade)
+        gaps = np.diff(sorted_z)
+        large_gaps = np.where(gaps > threshold)[0]
+
+        if len(large_gaps) == 0:
+            # Se não houver buracos, usar o comprimento total
+            z_min, z_max = sorted_z[0], sorted_z[-1]
+        else:
+            # Caso haja buracos, usar a primeira e a última borda válidas
+            z_min = sorted_z[0]
+            z_max = sorted_z[large_gaps[0]]
+
+        # Filtrar pontos fora das bordas
+        valid_indices = np.where((z >= z_min) & (z <= z_max))[0]
+        filtered_points = points[valid_indices]
+
+        # Atualizar os pontos na nuvem de pontos
+        self.point_cloud.points = o3d.utility.Vector3dVector(filtered_points)
     
     def _distance_pre_filter(self, 
         distance: float = 0.0
@@ -232,9 +272,9 @@ class PointCloudManager:
         ### virtualTwineAlgorithm
         Algorithm to calculate the warping by identifying the upper edge of a profile.
         
-        :param x: np.ndarray, x-coordinates of the profile points
-        :param y: np.ndarray, y-coordinates of the profile points
-        :param z: np.ndarray, z-coordinates of the profile points
+        :param x: np.ndarray, x-coordinates of the profile points - Length
+        :param y: np.ndarray, y-coordinates of the profile points - Height
+        :param z: np.ndarray, z-coordinates of the profile points - Distance / Depth
         
         :return: warping (float), a measure of the warping along the upper edge
         """
@@ -253,48 +293,65 @@ class PointCloudManager:
     def _upper_edge_finder(self, 
         x: np.ndarray, 
         y: np.ndarray,
-        diff_threshold_factor: float = 0.5
+        diff_threshold: float = 0.01  # Desired threshold in meters (e.g., 10 mm = 0.01 meters)
     ):
         """
         ### upper_edge_finder
-        Algorithm to find the upper edge of a profile and remove outliers based on relative differences.
-        
+        Algorithm to find the upper edge of a profile, remove outliers, and ensure points are processed in order of increasing x.
+
         :param x: np.ndarray, x-coordinates of the profile points
         :param y: np.ndarray, y-coordinates of the profile points
-        :param diff_threshold_factor: float, multiplier for the median difference used to define the threshold
-        
-        :return: upper_edge_x (np.ndarray), unique x-coordinates of the profile points
-        :return: upper_edge_y (np.ndarray), y-coordinates of the upper edge of the profile points
+        :param diff_threshold: float, the absolute difference threshold (e.g., 10 mm = 0.01 meters)
+
+        :return: filtered_x (np.ndarray), unique x-coordinates of the profile points with outliers removed
+        :return: filtered_y (np.ndarray), y-coordinates of the upper edge with outliers removed
         """
+        # Sort points by x-coordinate
+        sorted_indices = np.argsort(x)
+        x = x[sorted_indices]
+        y = y[sorted_indices]
+
+        # Unique x values
         unique_x = np.unique(x)
         upper_edge_y = np.full_like(unique_x, -np.inf, dtype=float)
 
-        # Identify the upper edge
+        # Identify the upper edge by selecting the maximum y for each unique x
         for i, x_val in enumerate(unique_x):
             indices = np.where(x == x_val)[0]
             upper_edge_y[i] = np.max(y[indices])
 
+        # Remove outliers from the upper edge using the 3-standard-deviation rule
+        mean_y = np.mean(upper_edge_y)
+        std_y = np.std(upper_edge_y)
+
+        # Define the threshold for outliers
+        threshold_lower = mean_y - 3 * std_y
+        threshold_upper = mean_y + 3 * std_y
+
+        # Find indices of outliers
+        outliers = np.where((upper_edge_y < threshold_lower) | (upper_edge_y > threshold_upper))
+
+        # Remove the outliers from both upper_edge_y and unique_x
+        upper_edge_y = np.delete(upper_edge_y, outliers)
+        unique_x = np.delete(unique_x, outliers)
+
         # Calculate the differences between consecutive y values
         diff_y = np.diff(upper_edge_y)
 
-        # Define the threshold based on the median of differences
-        threshold = np.median(np.abs(diff_y)) * diff_threshold_factor
+        # Dynamically calculate diff_threshold_factor based on the median difference
+        median_diff = np.median(np.abs(diff_y))
 
-        # Mask to keep values where the difference is less than or equal to the threshold
-        mask = np.ones_like(upper_edge_y, dtype=bool)  # Start with all True
-        mask[1:] = np.abs(diff_y) <= threshold  # Ignore the first point (no previous to compare)
+        if median_diff > diff_threshold:
+            median_diff = diff_threshold
 
-        # Analyze the first point to see if it's an outlier compared to the second
-        if np.abs(upper_edge_y[0] - upper_edge_y[1]) > threshold:
-            mask[0] = False  # Remove the first point if it's too different from the second
+        # Find indices where the difference between consecutive y values exceeds the threshold
+        #large_diff_indices = np.where(np.abs(diff_y) > diff_threshold)[0]
+        large_diff_indices = np.where(np.abs(diff_y) > median_diff)[0]
 
-        # Analyze the last point to see if it's an outlier compared to the previous one
-        if np.abs(upper_edge_y[-1] - upper_edge_y[-2]) > threshold:
-            mask[-1] = False  # Remove the last point if it's too different from the second-to-last
-
-        # Filter out the outlier points
-        filtered_x = unique_x[mask]
-        filtered_y = upper_edge_y[mask]
+        # Since np.diff() reduces the array size by 1, we need to remove both the current and next point
+        # Remove the corresponding points from both upper_edge_y and unique_x
+        filtered_y = np.delete(upper_edge_y, large_diff_indices + 1)  # Remove the next point
+        filtered_x = np.delete(unique_x, large_diff_indices + 1)
 
         return filtered_x, filtered_y
     

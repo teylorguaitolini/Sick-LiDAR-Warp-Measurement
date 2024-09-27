@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Carregar o CSV contendo os pontos da nuvem
-pcd_path = "D:\\Sick-LiDAR-Warp-Measurement\\api-sick-lidar-measurement\\PCDs\\20240919_162657.csv"
+pcd_path = "D:\\Sick-LiDAR-Warp-Measurement\\api-sick-lidar-measurement\\PCDs\\20240927_195824.csv"
 pcd_df = pd.read_csv(pcd_path)
 
 # Converter para NumPy

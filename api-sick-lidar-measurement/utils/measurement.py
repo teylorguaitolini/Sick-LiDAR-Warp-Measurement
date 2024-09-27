@@ -59,13 +59,15 @@ class Measurement:
                 self._conf.pulses_per_rev, 
                 self._conf.mm_per_rev
             )
+
+            # data adequacy to the point cloud
+            self._pcm.data_adequacy(mirror=True)
             
             # Apply filters to the point cloud
             self._pcm.filter_pcd(
                 distance=self._conf.distance
             )
-            
-            # data adequacy to plot the point cloud
+
             self._pcm.data_adequacy()
 
             # compute warping and get the warping image

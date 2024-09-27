@@ -61,7 +61,7 @@ class LMS4000():
             # ---  --- #
 
             self._cola.poll_one_telegram() # to clear the buffer
-            print(self._reverse_direction)
+            
             # --- Loop while Beg --- #
             while True:
                 # Receiving the scan data
@@ -69,7 +69,7 @@ class LMS4000():
                 
                 # --- Logic to stop the data acquisition --- #
                 self._update_direction(points)
-                print(self._direction)
+                
                 if self._stop_acquisition_conditions(reversible=self._reverse_direction):
                     break
                 # ---  --- #
@@ -93,7 +93,9 @@ class LMS4000():
             logger.error(f"Error in data acquisition routine: {e}")
             raise Exception(f"Error in data acquisition routine: {e}")
     
-    def _update_direction(self, points: list[tuple[float, float, int]]):
+    def _update_direction(self, 
+        points: list[tuple[float, float, int]]
+    ):
         self._encoder_value_previous = self._encoder_value_current
         self._encoder_value_current = points[0][2]
 
@@ -124,7 +126,9 @@ class LMS4000():
 
         return False    # the data acquisition must continue
 
-    def _stop_acquisition_conditions(self, reversible: bool):
+    def _stop_acquisition_conditions(self, 
+        reversible: bool
+    ):
         if self._check_encoder_overflow():
             logger.info("Data aquisition finished because the encoder overflowed.")
             return True
